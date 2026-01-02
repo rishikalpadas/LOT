@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lottery Stock Management</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <div class="welcome-section">
+            <h1>🎰 Lottery Stock Management System</h1>
+            <p>Manage your lottery ticket inventory with ease</p>
+            
+            <div class="features">
+                <div class="feature">
+                    <h3>📋 Stock Tracking</h3>
+                    <p>Track lottery tickets by series (M, D, E) and denomination</p>
+                </div>
+                <div class="feature">
+                    <h3>📊 Export Data</h3>
+                    <p>Export your stock records to CSV format</p>
+                </div>
+                <div class="feature">
+                    <h3>🔒 Secure Access</h3>
+                    <p>User authentication and admin controls</p>
+                </div>
+            </div>
+            
+            <div class="auth-buttons">
+                <a href="/login" class="btn btn-primary">Login</a>
+                <a href="/register" class="btn btn-secondary">Register</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

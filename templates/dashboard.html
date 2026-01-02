@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Lottery Stock Management</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="navbar">
+        <div class="navbar-content">
+            <h1>🎰 Lottery Stock Management</h1>
+            <div class="navbar-actions">
+                <span id="userName"></span>
+                <button class="btn btn-small" onclick="logout()">Logout</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="dashboard">
+            <div class="sidebar">
+                <nav>
+                    <button class="nav-btn active" onclick="showTab('dashboard-tab')">Dashboard</button>
+                    <button class="nav-btn" onclick="showTab('stock-tab')">Add Stock Entry</button>
+                    <button class="nav-btn" onclick="showTab('view-stock-tab')">View Stock</button>
+                    <button class="nav-btn" onclick="showTab('export-tab')">Export Data</button>
+                    <button class="nav-btn admin-only" style="display:none;" onclick="showTab('admin-tab')">Admin Panel</button>
+                </nav>
+            </div>
+
+            <div class="main-content">
+                <!-- Dashboard Tab -->
+                <div id="dashboard-tab" class="tab-content active">
+                    <h2>Welcome to Dashboard</h2>
+                    <div class="stats">
+                        <div class="stat-card">
+                            <h3>Total Categories</h3>
+                            <p id="totalCategories">0</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3>Total Entries</h3>
+                            <p id="totalEntries">0</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3>Total Tickets</h3>
+                            <p id="totalTickets">0</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Add Stock Entry Tab -->
+                <div id="stock-tab" class="tab-content">
+                    <h2>Add Stock Entry</h2>
+                    <form id="stockForm" class="form-grid">
+                        <div class="form-group">
+                            <label for="entryDate">Date:</label>
+                            <input type="date" id="entryDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="categorySelect">Category:</label>
+                            <select id="categorySelect" required>
+                                <option value="">Select Category</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="startNumber">Start Number:</label>
+                            <input type="text" id="startNumber" placeholder="e.g., 01234" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="endNumber">End Number:</label>
+                            <input type="text" id="endNumber" placeholder="Enter last digits" required>
+                        </div>
+                        <div class="form-info">
+                            Quantity: <span id="quantityDisplay">0</span> tickets
+                        </div>
+                        <button type="submit" class="btn btn-primary full-width">Add Entry</button>
+                    </form>
+                    <div id="stockMessage" class="message"></div>
+                </div>
+
+                <!-- View Stock Tab -->
+                <div id="view-stock-tab" class="tab-content">
+                    <h2>View Stock Entries</h2>
+                    <div class="form-group">
+                        <label for="filterDate">Filter by Date:</label>
+                        <input type="date" id="filterDate">
+                        <button class="btn btn-secondary" onclick="loadStockEntries()">Filter</button>
+                        <button class="btn btn-secondary" onclick="clearDateFilter()">Clear</button>
+                    </div>
+                    <div id="stockTable" class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Category</th>
+                                    <th>Start Number</th>
+                                    <th>End Number</th>
+                                    <th>Quantity</th>
+                                    <th>Notes</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="stockBody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Export Tab -->
+                <div id="export-tab" class="tab-content">
+                    <h2>Export Data</h2>
+                    <div class="export-section">
+                        <p>Export your stock data to CSV format</p>
+                        <div class="form-group">
+                            <label for="exportDate">Export for Date (Optional):</label>
+                            <input type="date" id="exportDate">
+                        </div>
+                        <button class="btn btn-primary" onclick="exportToCSV()">Export to CSV</button>
+                    </div>
+                </div>
+
+                <!-- Admin Panel Tab -->
+                <div id="admin-tab" class="tab-content">
+                    <h2>Admin Panel</h2>
+                    
+                    <div class="admin-section">
+                        <h3>Manage Categories</h3>
+                        <form id="categoryForm" class="form-grid">
+                            <div class="form-group full-width">
+                                <label for="categoryName">Category Name (e.g., M25, D10, E5):</label>
+                                <input type="text" id="categoryName" placeholder="M25" maxlength="5" style="text-transform: uppercase;" required>
+                                <small style="color: #718096;">Use format: Letter (M/D/E) + Number (e.g., M25, D10, E50)</small>
+                            </div>
+                            <button type="submit" class="btn btn-primary" id="categorySubmitBtn">Add Category</button>
+                        </form>
+                        <div id="categoryMessage" class="message"></div>
+                    </div>
+
+                    <div class="admin-section">
+                        <h3>Existing Categories</h3>
+                        <div id="categoriesList" class="categories-grid">
+                        </div>
+                    </div>
+
+                    <div class="admin-section">
+                        <h3>Make User Admin</h3>
+                        <form id="adminForm" class="form-grid">
+                            <div class="form-group">
+                                <label for="adminUsername">Username:</label>
+                                <input type="text" id="adminUsername" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Promote to Admin</button>
+                        </form>
+                        <div id="adminMessage" class="message"></div>
+                    </div>
+
+                    <div class="admin-section">
+                        <h3>All Users</h3>
+                        <div id="usersList" class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Username</th>
+                                        <th>Role</th>
+                                        <th>Created At</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="usersBody">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
