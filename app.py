@@ -70,6 +70,7 @@ class Distributor(db.Model):
     name = db.Column(db.String(100), nullable=False, unique=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     entries = db.relationship('StockEntry', backref='distributor', lazy=True)
+    sale_entries = db.relationship('SaleEntry', backref='distributor', lazy=True)
 
 class StockEntry(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -85,6 +86,22 @@ class StockEntry(db.Model):
     notes = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+
+class SaleEntry(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    category_id = db.Column(db.Integer, db.ForeignKey('category.id'), nullable=False)
+    distributor_id = db.Column(db.Integer, db.ForeignKey('distributor.id'), nullable=True)
+    entry_date = db.Column(db.Date, nullable=False)
+    ticket_code = db.Column(db.String(10), nullable=True)  # Manual code like 61A, 43G
+    start_number = db.Column(TextString(20), nullable=False)
+    end_number = db.Column(TextString(20), nullable=False)
+    quantity = db.Column(db.Integer, nullable=False)
+    rate = db.Column(db.Float, nullable=False, default=0)
+    amount = db.Column(db.Float, nullable=False, default=0)
+    notes = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    sale_category = db.relationship('Category', backref='sale_entries')
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -324,6 +341,41 @@ def manage_distributor(distributor_id):
         'name': distributor.name
     })
 
+# Helper function to check for overlapping ticket ranges
+def check_overlapping_range(category_id, ticket_code, start_num, end_num, exclude_entry_id=None):
+    """
+    Check if a ticket range overlaps with existing entries for the same category and ticket code.
+    Returns the overlapping entry if found, None otherwise.
+    Two ranges [a, b] and [c, d] overlap if: a <= d AND c <= b
+    """
+    # Get all entries for this category with the same ticket code
+    query = StockEntry.query.filter_by(category_id=category_id)
+    
+    # Filter by ticket code (both must match, including None)
+    if ticket_code:
+        query = query.filter_by(ticket_code=ticket_code)
+    else:
+        query = query.filter(StockEntry.ticket_code.is_(None))
+    
+    # Exclude the current entry if updating
+    if exclude_entry_id:
+        query = query.filter(StockEntry.id != exclude_entry_id)
+    
+    existing_entries = query.all()
+    
+    new_start = int(start_num)
+    new_end = int(end_num)
+    
+    for entry in existing_entries:
+        existing_start = int(entry.start_number)
+        existing_end = int(entry.end_number)
+        
+        # Check for overlap: ranges overlap if new_start <= existing_end AND existing_start <= new_end
+        if new_start <= existing_end and existing_start <= new_end:
+            return entry
+    
+    return None
+
 @app.route('/api/stock-entries', methods=['GET', 'POST'])
 @login_required
 def stock_entries():
@@ -341,17 +393,32 @@ def stock_entries():
             else:
                 distributor_id = int(distributor_id)
             
+            category_id = int(data.get('category_id'))
+            ticket_code = data.get('ticket_code', '').strip().upper() or None
+            start_number = data.get('start_number')
+            end_number = data.get('end_number')
+            
+            # Check for overlapping ranges
+            overlapping = check_overlapping_range(category_id, ticket_code, start_number, end_number)
+            if overlapping:
+                category = Category.query.get(category_id)
+                cat_name = category.name if category else 'Unknown'
+                return jsonify({
+                    'success': False, 
+                    'message': f'Overlapping range exists for {cat_name} ({ticket_code or "no code"}): {overlapping.start_number} - {overlapping.end_number}'
+                }), 400
+            
             rate = float(data.get('rate', 0))
             quantity = int(data.get('quantity', 0))
             amount = rate * quantity
             
             entry = StockEntry(
-                category_id=int(data.get('category_id')),
+                category_id=category_id,
                 distributor_id=distributor_id,
                 entry_date=datetime.strptime(data.get('entry_date'), '%Y-%m-%d').date(),
-                ticket_code=data.get('ticket_code', '').strip().upper() or None,
-                start_number=data.get('start_number'),
-                end_number=data.get('end_number'),
+                ticket_code=ticket_code,
+                start_number=start_number,
+                end_number=end_number,
                 quantity=quantity,
                 rate=rate,
                 amount=amount,
@@ -430,6 +497,132 @@ def manage_stock_entry(entry_id):
     data = request.get_json()
     
     try:
+        # Get values for overlap check
+        category_id = int(data.get('category_id', entry.category_id))
+        ticket_code = data.get('ticket_code', entry.ticket_code)
+        if ticket_code:
+            ticket_code = ticket_code.strip().upper() if ticket_code else None
+        start_number = data.get('start_number', entry.start_number)
+        end_number = data.get('end_number', entry.end_number)
+        
+        # Check for overlapping ranges (exclude current entry)
+        overlapping = check_overlapping_range(category_id, ticket_code, start_number, end_number, exclude_entry_id=entry_id)
+        if overlapping:
+            category = Category.query.get(category_id)
+            cat_name = category.name if category else 'Unknown'
+            return jsonify({
+                'success': False, 
+                'message': f'Overlapping range exists for {cat_name} ({ticket_code or "no code"}): {overlapping.start_number} - {overlapping.end_number}'
+            }), 400
+        
+        entry.category_id = category_id
+        entry.ticket_code = ticket_code
+        entry.start_number = start_number
+        entry.end_number = end_number
+        
+        if 'quantity' in data:
+            entry.quantity = int(data['quantity'])
+        if 'rate' in data:
+            entry.rate = float(data['rate'])
+        # Recalculate amount
+        entry.amount = (entry.rate or 0) * (entry.quantity or 0)
+        
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Entry updated'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 400
+
+# Sale Entry API Endpoints
+@app.route('/api/sale-entries', methods=['GET', 'POST'])
+@login_required
+def sale_entries():
+    if request.method == 'POST':
+        try:
+            data = request.get_json()
+            logger.info(f"[SALE-ENTRY POST] Received data: {data}")
+            
+            # Handle distributor_id - can be empty string, None, or a number
+            distributor_id = data.get('distributor_id')
+            if distributor_id == '' or distributor_id is None:
+                distributor_id = None
+            else:
+                distributor_id = int(distributor_id)
+            
+            rate = float(data.get('rate', 0))
+            quantity = int(data.get('quantity', 0))
+            amount = rate * quantity
+            
+            entry = SaleEntry(
+                category_id=int(data.get('category_id')),
+                distributor_id=distributor_id,
+                entry_date=datetime.strptime(data.get('entry_date'), '%Y-%m-%d').date(),
+                ticket_code=data.get('ticket_code', '').strip().upper() or None,
+                start_number=data.get('start_number'),
+                end_number=data.get('end_number'),
+                quantity=quantity,
+                rate=rate,
+                amount=amount,
+                notes=data.get('notes'),
+                created_by=current_user.id
+            )
+            
+            db.session.add(entry)
+            db.session.commit()
+            
+            return jsonify({'success': True, 'id': entry.id, 'message': 'Sale entry created'})
+        except Exception as e:
+            logger.error(f"[SALE-ENTRY POST] Error: {str(e)}")
+            db.session.rollback()
+            return jsonify({'success': False, 'message': str(e)}), 500
+    
+    # Get all entries or filter by date
+    date_filter = request.args.get('date')
+    query = SaleEntry.query
+    
+    if date_filter:
+        query = query.filter_by(entry_date=datetime.strptime(date_filter, '%Y-%m-%d').date())
+    
+    entries = query.all()
+    
+    result = []
+    for e in entries:
+        category = Category.query.get(e.category_id)
+        distributor = Distributor.query.get(e.distributor_id) if e.distributor_id else None
+        result.append({
+            'id': e.id,
+            'category': category.name if category else 'Unknown',
+            'category_id': e.category_id,
+            'distributor': distributor.name if distributor else '',
+            'distributor_id': e.distributor_id,
+            'date': e.entry_date.strftime('%Y-%m-%d'),
+            'ticket_code': e.ticket_code or '',
+            'start_number': e.start_number,
+            'end_number': e.end_number,
+            'quantity': e.quantity,
+            'rate': e.rate or 0,
+            'amount': e.amount or 0,
+            'notes': e.notes
+        })
+    
+    return jsonify(result)
+
+@app.route('/api/sale-entries/<int:entry_id>', methods=['PUT', 'DELETE'])
+@login_required
+def manage_sale_entry(entry_id):
+    entry = SaleEntry.query.get(entry_id)
+    if not entry:
+        return jsonify({'success': False, 'message': 'Entry not found'}), 404
+    
+    if request.method == 'DELETE':
+        db.session.delete(entry)
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Entry deleted'})
+    
+    # PUT - Update entry
+    data = request.get_json()
+    
+    try:
         if 'category_id' in data:
             entry.category_id = int(data['category_id'])
         if 'ticket_code' in data:
@@ -446,7 +639,7 @@ def manage_stock_entry(entry_id):
         entry.amount = (entry.rate or 0) * (entry.quantity or 0)
         
         db.session.commit()
-        return jsonify({'success': True, 'message': 'Entry updated'})
+        return jsonify({'success': True, 'message': 'Sale entry updated'})
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'message': str(e)}), 400

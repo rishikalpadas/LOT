@@ -1576,4 +1576,584 @@ showTab = function(tabId) {
     if (tabId === 'print-tab') {
         loadPrintCategories();
     }
+    if (tabId === 'sale-tab') {
+        initializeSaleTab();
+    }
 };
+
+// ==================== SALE TAB FUNCTIONALITY ====================
+
+// Initialize Sale tab
+function initializeSaleTab() {
+    // Set today's date if not already set
+    const saleDateInput = document.getElementById('saleEntryDate');
+    if (!saleDateInput.value) {
+        saleDateInput.valueAsDate = new Date();
+    }
+    
+    // Populate categories for sale
+    loadSaleCategories();
+    
+    // Populate distributors for sale
+    loadSaleDistributors();
+    
+    // Load session entries
+    loadSaleSessionEntries();
+    
+    // Focus date field
+    setTimeout(() => {
+        saleDateInput.focus();
+    }, 100);
+}
+
+// Load categories for sale dropdown
+function loadSaleCategories() {
+    const select = document.getElementById('saleCategorySelect');
+    select.innerHTML = '<option value="">Select</option>';
+    categoriesData.forEach(cat => {
+        const option = document.createElement('option');
+        option.value = cat.id;
+        option.textContent = cat.name;
+        option.dataset.saleRate = cat.sale_rate || 0;
+        option.dataset.denomination = cat.denomination || 1;
+        select.appendChild(option);
+    });
+}
+
+// Load distributors for sale dropdown
+function loadSaleDistributors() {
+    const select = document.getElementById('saleDistributorSelect');
+    select.innerHTML = '<option value="">Select Distributor</option>';
+    distributorsData.forEach(dist => {
+        const option = document.createElement('option');
+        option.value = dist.id;
+        option.textContent = dist.name;
+        select.appendChild(option);
+    });
+}
+
+// Handle sale category change - auto-populate sale rate
+function handleSaleCategoryChange() {
+    const categoryId = document.getElementById('saleCategorySelect').value;
+    
+    if (categoryId) {
+        const category = categoriesData.find(c => c.id == categoryId);
+        if (category && category.sale_rate) {
+            document.getElementById('saleRateInput').value = category.sale_rate;
+            updateSaleAmountPreview();
+        }
+    }
+    
+    updateSaleQuantityPreview();
+}
+
+// Clear sale form
+function clearSaleForm() {
+    document.getElementById('saleCategorySelect').value = '';
+    document.getElementById('saleTicketCode').value = '';
+    document.getElementById('saleStartNumber').value = '';
+    document.getElementById('saleEndNumber').value = '';
+    document.getElementById('saleQuantityDisplay').textContent = '0';
+    document.getElementById('saleRateInput').value = '';
+    document.getElementById('saleAmountDisplay').textContent = '0';
+    
+    // Focus on category
+    document.getElementById('saleCategorySelect').focus();
+}
+
+// Update sale quantity preview
+function updateSaleQuantityPreview() {
+    const startNumber = document.getElementById('saleStartNumber').value;
+    const endNumber = document.getElementById('saleEndNumber').value;
+    const categoryId = document.getElementById('saleCategorySelect').value;
+    
+    if (startNumber && endNumber) {
+        const start = parseInt(startNumber);
+        const fullEnd = completeSaleEndNumber();
+        const end = parseInt(fullEnd);
+        
+        if (!isNaN(start) && !isNaN(end) && end >= start) {
+            const ticketCount = end - start + 1;
+            
+            // Get denomination from category
+            let denomination = 1;
+            if (categoryId) {
+                const category = categoriesData.find(c => c.id == categoryId);
+                if (category) {
+                    denomination = parseInt(category.denomination) || 1;
+                }
+            }
+            
+            const quantity = ticketCount * denomination;
+            document.getElementById('saleQuantityDisplay').textContent = quantity;
+            updateSaleAmountPreview();
+            return;
+        }
+    }
+    
+    document.getElementById('saleQuantityDisplay').textContent = '0';
+    document.getElementById('saleAmountDisplay').textContent = '0';
+}
+
+// Complete sale end number
+function completeSaleEndNumber() {
+    const startInput = document.getElementById('saleStartNumber');
+    const endInput = document.getElementById('saleEndNumber');
+    
+    const startNumber = startInput.value;
+    const endNumber = endInput.value;
+    
+    if (!startNumber || !endNumber) return endNumber;
+    if (endNumber.length >= startNumber.length) return endNumber;
+    
+    const prefix = startNumber.substring(0, startNumber.length - endNumber.length);
+    return prefix + endNumber;
+}
+
+// Handle sale end number complete
+function handleSaleEndNumberComplete() {
+    const endInput = document.getElementById('saleEndNumber');
+    const fullEnd = completeSaleEndNumber();
+    
+    if (fullEnd !== endInput.value) {
+        endInput.value = fullEnd;
+    }
+    
+    updateSaleQuantityPreview();
+}
+
+// Update sale amount preview
+function updateSaleAmountPreview() {
+    const quantity = parseInt(document.getElementById('saleQuantityDisplay').textContent) || 0;
+    const rate = parseFloat(document.getElementById('saleRateInput').value) || 0;
+    const amount = quantity * rate;
+    document.getElementById('saleAmountDisplay').textContent = amount.toFixed(2);
+}
+
+// Handle sale end number keydown
+function handleSaleEndNumberKeydown(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        handleSaleEndNumberComplete();
+        submitSaleEntry();
+    }
+}
+
+// Handle sale rate keydown
+function handleSaleRateKeydown(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        submitSaleEntry();
+    }
+}
+
+// Submit sale entry
+async function submitSaleEntry() {
+    const entryDate = document.getElementById('saleEntryDate').value;
+    const distributorId = document.getElementById('saleDistributorSelect').value;
+    const categoryId = document.getElementById('saleCategorySelect').value;
+    const ticketCode = document.getElementById('saleTicketCode').value.toUpperCase();
+    const startNumber = document.getElementById('saleStartNumber').value;
+    let endNumber = document.getElementById('saleEndNumber').value;
+    const rate = parseFloat(document.getElementById('saleRateInput').value) || 0;
+    
+    // Validation
+    if (!entryDate) {
+        showToast('Please select a date', 'warning');
+        document.getElementById('saleEntryDate').focus();
+        return;
+    }
+    
+    if (!distributorId) {
+        showToast('Please select a distributor', 'warning');
+        document.getElementById('saleDistributorSelect').focus();
+        return;
+    }
+    
+    if (!categoryId) {
+        showToast('Please select a category', 'warning');
+        document.getElementById('saleCategorySelect').focus();
+        return;
+    }
+    
+    if (!ticketCode) {
+        showToast('Please enter a ticket code', 'warning');
+        document.getElementById('saleTicketCode').focus();
+        return;
+    }
+    
+    if (!startNumber) {
+        showToast('Please enter a start number', 'warning');
+        document.getElementById('saleStartNumber').focus();
+        return;
+    }
+    
+    if (!endNumber) {
+        showToast('Please enter an end number', 'warning');
+        document.getElementById('saleEndNumber').focus();
+        return;
+    }
+    
+    if (!rate || rate <= 0) {
+        showToast('Please enter a valid rate', 'warning');
+        document.getElementById('saleRateInput').focus();
+        return;
+    }
+    
+    // Auto-complete end number
+    endNumber = completeSaleEndNumber();
+    document.getElementById('saleEndNumber').value = endNumber;
+    
+    // Calculate quantity
+    const start = parseInt(startNumber);
+    const end = parseInt(endNumber);
+    const ticketCount = end - start + 1;
+    
+    // Get denomination
+    let denomination = 1;
+    const category = categoriesData.find(c => c.id == categoryId);
+    if (category) {
+        denomination = parseInt(category.denomination) || 1;
+    }
+    const quantity = ticketCount * denomination;
+    
+    try {
+        const response = await fetch('/api/sale-entries', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                entry_date: entryDate,
+                distributor_id: distributorId,
+                category_id: categoryId,
+                ticket_code: ticketCode,
+                start_number: startNumber,
+                end_number: endNumber,
+                quantity: quantity,
+                rate: rate
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast('Sale entry added successfully!', 'success');
+            clearSaleForm();
+            loadSaleSessionEntries();
+        } else {
+            showToast(data.message || 'Failed to add sale entry', 'error');
+        }
+    } catch (error) {
+        showToast('Error adding sale entry: ' + error.message, 'error');
+    }
+}
+
+// Load sale session entries
+async function loadSaleSessionEntries() {
+    const entryDate = document.getElementById('saleEntryDate').value;
+    if (!entryDate) return;
+    
+    // Update date display
+    document.getElementById('saleSessionDateDisplay').textContent = new Date(entryDate).toLocaleDateString();
+    
+    try {
+        const response = await fetch(`/api/sale-entries?date=${entryDate}`);
+        const entries = await response.json();
+        
+        const tbody = document.getElementById('saleSessionEntriesBody');
+        
+        if (entries.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 15px; color: #a0aec0;">No sales yet for this date</td></tr>';
+            document.getElementById('saleSessionEntryCount').textContent = '0';
+            document.getElementById('saleSessionTotalQty').textContent = '0';
+            document.getElementById('saleSessionTotalAmount').textContent = '0';
+            return;
+        }
+        
+        let totalQty = 0;
+        let totalAmount = 0;
+        
+        tbody.innerHTML = entries.map(entry => {
+            totalQty += entry.quantity;
+            totalAmount += entry.amount || 0;
+            
+            return `
+                <tr id="sale-entry-row-${entry.id}">
+                    <td>${entry.category}</td>
+                    <td>${entry.ticket_code || ''}</td>
+                    <td>${entry.start_number}</td>
+                    <td>${entry.end_number}</td>
+                    <td class="cell-qty">${entry.quantity}</td>
+                    <td>${entry.rate || 0}</td>
+                    <td class="cell-amount">${(entry.amount || 0).toFixed(2)}</td>
+                    <td class="cell-actions">
+                        <button class="btn-edit btn-sm" onclick="startSaleInlineEdit(${entry.id}, ${entry.category_id}, '${entry.ticket_code || ''}', '${entry.start_number}', '${entry.end_number}', ${entry.rate || 0})">Edit</button>
+                        <button class="btn-delete btn-sm" onclick="deleteSaleSessionEntry(${entry.id})">Delete</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+        
+        document.getElementById('saleSessionEntryCount').textContent = entries.length;
+        document.getElementById('saleSessionTotalQty').textContent = totalQty;
+        document.getElementById('saleSessionTotalAmount').textContent = totalAmount.toFixed(2);
+        
+    } catch (error) {
+        console.error('Error loading sale session entries:', error);
+    }
+}
+
+// Delete sale session entry
+async function deleteSaleSessionEntry(entryId) {
+    const confirmed = await showConfirm('Are you sure you want to delete this sale entry?', 'Confirm Delete');
+    if (!confirmed) return;
+    
+    try {
+        const response = await fetch(`/api/sale-entries/${entryId}`, {
+            method: 'DELETE'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast('Sale entry deleted', 'success');
+            loadSaleSessionEntries();
+        } else {
+            showToast(data.message || 'Failed to delete', 'error');
+        }
+    } catch (error) {
+        showToast('Error deleting entry: ' + error.message, 'error');
+    }
+}
+
+// Start inline edit for sale entry
+function startSaleInlineEdit(entryId, categoryId, ticketCode, startNumber, endNumber, rate = 0) {
+    const row = document.getElementById(`sale-entry-row-${entryId}`);
+    if (!row) return;
+    
+    // Build category options
+    const categoryOptions = categoriesData.map(cat => 
+        `<option value="${cat.id}" ${cat.id == categoryId ? 'selected' : ''}>${cat.name}</option>`
+    ).join('');
+    
+    // Replace cells with input fields
+    row.innerHTML = `
+        <td>
+            <select class="inline-edit-select" id="sale-edit-cat-${entryId}" tabindex="1">
+                ${categoryOptions}
+            </select>
+        </td>
+        <td>
+            <input type="text" class="inline-edit-input" id="sale-edit-code-${entryId}" value="${ticketCode}" tabindex="2" style="text-transform: uppercase;">
+        </td>
+        <td>
+            <input type="text" class="inline-edit-input" id="sale-edit-start-${entryId}" value="${startNumber}" tabindex="3">
+        </td>
+        <td>
+            <input type="text" class="inline-edit-input" id="sale-edit-end-${entryId}" value="" placeholder="${endNumber.slice(-2)}" tabindex="4">
+        </td>
+        <td class="cell-qty" id="sale-edit-qty-${entryId}">--</td>
+        <td>
+            <input type="number" class="inline-edit-input" id="sale-edit-rate-${entryId}" value="${rate}" tabindex="5" min="0" step="0.01">
+        </td>
+        <td class="cell-amount" id="sale-edit-amount-${entryId}">--</td>
+        <td class="cell-actions">
+            <button class="btn-success btn-sm" onclick="saveSaleInlineEdit(${entryId})" tabindex="6">✓</button>
+            <button class="btn-secondary btn-sm" onclick="cancelSaleInlineEdit()" tabindex="7">✕</button>
+        </td>
+    `;
+    
+    // Store original values
+    row.dataset.originalStart = startNumber;
+    row.dataset.originalEnd = endNumber;
+    
+    const catSelect = document.getElementById(`sale-edit-cat-${entryId}`);
+    const codeInput = document.getElementById(`sale-edit-code-${entryId}`);
+    const startInput = document.getElementById(`sale-edit-start-${entryId}`);
+    const endInput = document.getElementById(`sale-edit-end-${entryId}`);
+    const rateInput = document.getElementById(`sale-edit-rate-${entryId}`);
+    
+    // Focus on category
+    catSelect.focus();
+    
+    // Update qty/amount on input changes
+    const updateSaleInlineQtyAmount = () => {
+        const start = parseInt(startInput.value) || 0;
+        let end = parseInt(endInput.value) || 0;
+        
+        // Auto-complete end number
+        if (endInput.value && endInput.value.length < startInput.value.length) {
+            const prefix = startInput.value.substring(0, startInput.value.length - endInput.value.length);
+            end = parseInt(prefix + endInput.value);
+        }
+        
+        if (start && end && end >= start) {
+            const ticketCount = end - start + 1;
+            const category = categoriesData.find(c => c.id == catSelect.value);
+            const denomination = parseInt(category?.denomination) || 1;
+            const qty = ticketCount * denomination;
+            const rate = parseFloat(rateInput.value) || 0;
+            
+            document.getElementById(`sale-edit-qty-${entryId}`).textContent = qty;
+            document.getElementById(`sale-edit-amount-${entryId}`).textContent = (qty * rate).toFixed(2);
+        }
+    };
+    
+    startInput.addEventListener('input', updateSaleInlineQtyAmount);
+    endInput.addEventListener('input', updateSaleInlineQtyAmount);
+    rateInput.addEventListener('input', updateSaleInlineQtyAmount);
+    catSelect.addEventListener('change', updateSaleInlineQtyAmount);
+    
+    updateSaleInlineQtyAmount();
+}
+
+// Save sale inline edit
+async function saveSaleInlineEdit(entryId) {
+    const categoryId = document.getElementById(`sale-edit-cat-${entryId}`).value;
+    const ticketCode = document.getElementById(`sale-edit-code-${entryId}`).value.toUpperCase();
+    const startNumber = document.getElementById(`sale-edit-start-${entryId}`).value;
+    let endNumber = document.getElementById(`sale-edit-end-${entryId}`).value;
+    const rate = parseFloat(document.getElementById(`sale-edit-rate-${entryId}`).value) || 0;
+    
+    // Auto-complete end number
+    if (endNumber && endNumber.length < startNumber.length) {
+        const prefix = startNumber.substring(0, startNumber.length - endNumber.length);
+        endNumber = prefix + endNumber;
+    }
+    
+    if (!startNumber || !endNumber) {
+        showToast('Please fill in all fields', 'warning');
+        return;
+    }
+    
+    // Calculate quantity
+    const start = parseInt(startNumber);
+    const end = parseInt(endNumber);
+    const ticketCount = end - start + 1;
+    
+    const category = categoriesData.find(c => c.id == categoryId);
+    const denomination = parseInt(category?.denomination) || 1;
+    const quantity = ticketCount * denomination;
+    
+    try {
+        const response = await fetch(`/api/sale-entries/${entryId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                category_id: categoryId,
+                ticket_code: ticketCode,
+                start_number: startNumber,
+                end_number: endNumber,
+                quantity: quantity,
+                rate: rate
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast('Sale entry updated', 'success');
+            loadSaleSessionEntries();
+        } else {
+            showToast(data.message || 'Failed to update', 'error');
+        }
+    } catch (error) {
+        showToast('Error updating entry: ' + error.message, 'error');
+    }
+}
+
+// Cancel sale inline edit
+function cancelSaleInlineEdit() {
+    loadSaleSessionEntries();
+}
+
+// Setup sale tab event listeners
+document.addEventListener('DOMContentLoaded', () => {
+    // Sale form event listeners
+    const saleEndNumber = document.getElementById('saleEndNumber');
+    if (saleEndNumber) {
+        saleEndNumber.addEventListener('blur', handleSaleEndNumberComplete);
+        saleEndNumber.addEventListener('input', updateSaleQuantityPreview);
+        saleEndNumber.addEventListener('keydown', handleSaleEndNumberKeydown);
+    }
+    
+    const saleRateInput = document.getElementById('saleRateInput');
+    if (saleRateInput) {
+        saleRateInput.addEventListener('input', updateSaleAmountPreview);
+        saleRateInput.addEventListener('keydown', handleSaleRateKeydown);
+    }
+    
+    const saleStartNumber = document.getElementById('saleStartNumber');
+    if (saleStartNumber) {
+        saleStartNumber.addEventListener('change', updateSaleQuantityPreview);
+        saleStartNumber.addEventListener('input', updateSaleQuantityPreview);
+    }
+    
+    const saleCategorySelect = document.getElementById('saleCategorySelect');
+    if (saleCategorySelect) {
+        saleCategorySelect.addEventListener('change', handleSaleCategoryChange);
+    }
+    
+    const saleEntryDate = document.getElementById('saleEntryDate');
+    if (saleEntryDate) {
+        saleEntryDate.addEventListener('change', loadSaleSessionEntries);
+    }
+    
+    // Set today's date for sale tab
+    if (saleEntryDate && !saleEntryDate.value) {
+        saleEntryDate.valueAsDate = new Date();
+    }
+});
+
+// Handle keyboard shortcuts for sale tab
+const originalHandleKeyboardShortcuts = handleKeyboardShortcuts;
+handleKeyboardShortcuts = function(e) {
+    // Check if on sale tab
+    const saleTab = document.getElementById('sale-tab');
+    if (saleTab && saleTab.classList.contains('active')) {
+        // Escape key - clear form
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            clearSaleForm();
+            return;
+        }
+        
+        // Tab key - focus trap within the sale page
+        if (e.key === 'Tab') {
+            handleSaleFocusTrap(e);
+            return;
+        }
+    }
+    
+    // Call original for purchase tab
+    originalHandleKeyboardShortcuts.call(this, e);
+};
+
+// Focus trap for sale tab
+function handleSaleFocusTrap(e) {
+    const saleTab = document.getElementById('sale-tab');
+    if (!saleTab.classList.contains('active')) return;
+    
+    const fields = [
+        document.getElementById('saleEntryDate'),
+        document.getElementById('saleDistributorSelect'),
+        document.getElementById('saleCategorySelect'),
+        document.getElementById('saleTicketCode'),
+        document.getElementById('saleStartNumber'),
+        document.getElementById('saleEndNumber'),
+        document.getElementById('saleRateInput')
+    ].filter(el => el !== null);
+    
+    const currentIndex = fields.indexOf(document.activeElement);
+    
+    if (e.shiftKey) {
+        if (currentIndex <= 0) {
+            e.preventDefault();
+            fields[fields.length - 1].focus();
+        }
+    } else {
+        if (currentIndex === fields.length - 1) {
+            e.preventDefault();
+            fields[0].focus();
+        }
+    }
+}

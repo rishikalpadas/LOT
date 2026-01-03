@@ -39,6 +39,7 @@
                 <nav>
                     <button class="nav-btn active" onclick="showTab('dashboard-tab')">Dashboard</button>
                     <button class="nav-btn" onclick="showTab('stock-tab')">Purchase</button>
+                    <button class="nav-btn" onclick="showTab('sale-tab')">Sale</button>
                     <button class="nav-btn" onclick="showTab('view-stock-tab')">View Stock</button>
                     <button class="nav-btn" onclick="showTab('export-tab')">Export Data</button>
                     <button class="nav-btn" onclick="showTab('print-tab')">Print Report</button>
@@ -160,6 +161,104 @@
                             <span>Total Entries: <strong id="sessionEntryCount">0</strong></span>
                             <span>Total Quantity: <strong id="sessionTotalQty">0</strong></span>
                             <span>Total Amount: <strong id="sessionTotalAmount">0</strong></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sale Tab -->
+                <div id="sale-tab" class="tab-content" data-focus-trap="true">
+                    <div class="compact-header">
+                        <h2>Sale</h2>
+                        <span class="hint">Tab to cycle fields • Enter to submit • Esc to clear</span>
+                    </div>
+                    
+                    <!-- Session Settings (Date & Distributor) -->
+                    <div class="session-settings">
+                        <div class="session-field">
+                            <label for="saleEntryDate">📅 Date:</label>
+                            <input type="date" id="saleEntryDate" tabindex="1" data-field-order="1" required>
+                        </div>
+                        <div class="session-field">
+                            <label for="saleDistributorSelect">🏪 Distributor:</label>
+                            <select id="saleDistributorSelect" tabindex="2" data-field-order="2" required>
+                                <option value="">Select Distributor</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <form id="saleForm" class="compact-form">
+                        <table class="entry-table">
+                            <thead>
+                                <tr>
+                                    <th>Category</th>
+                                    <th>Code</th>
+                                    <th>Start No.</th>
+                                    <th>End No.</th>
+                                    <th>Qty</th>
+                                    <th>Rate</th>
+                                    <th>Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="entry-row">
+                                    <td>
+                                        <select id="saleCategorySelect" tabindex="3" data-field-order="3" required>
+                                            <option value="">Select</option>
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <input type="text" id="saleTicketCode" tabindex="4" data-field-order="4"
+                                               placeholder="61A" maxlength="10" autocomplete="off" style="text-transform: uppercase;" required>
+                                    </td>
+                                    <td>
+                                        <input type="text" id="saleStartNumber" tabindex="5" data-field-order="5"
+                                               placeholder="05370" autocomplete="off" required>
+                                    </td>
+                                    <td>
+                                        <input type="text" id="saleEndNumber" tabindex="6" data-field-order="6"
+                                               placeholder="99" autocomplete="off" required>
+                                    </td>
+                                    <td class="qty-cell">
+                                        <span id="saleQuantityDisplay">0</span>
+                                    </td>
+                                    <td>
+                                        <input type="number" id="saleRateInput" tabindex="7" data-field-order="7"
+                                               placeholder="0" min="0.01" step="0.01" autocomplete="off" required>
+                                    </td>
+                                    <td class="qty-cell">
+                                        <span id="saleAmountDisplay">0</span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </form>
+                    
+                    <!-- Today's Sales -->
+                    <div class="session-entries">
+                        <h3>📋 Sales for <span id="saleSessionDateDisplay">Today</span></h3>
+                        <div id="saleSessionEntriesTable" class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Category</th>
+                                        <th>Code</th>
+                                        <th>Start No.</th>
+                                        <th>End No.</th>
+                                        <th>Qty</th>
+                                        <th>Rate</th>
+                                        <th>Amount</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="saleSessionEntriesBody">
+                                    <tr><td colspan="8" style="text-align:center; padding: 15px; color: #a0aec0;">No sales yet for this date</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="session-summary">
+                            <span>Total Entries: <strong id="saleSessionEntryCount">0</strong></span>
+                            <span>Total Quantity: <strong id="saleSessionTotalQty">0</strong></span>
+                            <span>Total Amount: <strong id="saleSessionTotalAmount">0</strong></span>
                         </div>
                     </div>
                 </div>
