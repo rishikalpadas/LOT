@@ -7,6 +7,9 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+    
     <div class="container">
         <div class="auth-form">
             <h2>Register</h2>
@@ -26,21 +29,35 @@
                 <button type="submit" class="btn btn-primary">Register</button>
                 <p class="auth-link">Already have an account? <a href="/login">Login here</a></p>
             </form>
-            <div id="message" class="message"></div>
         </div>
     </div>
 
     <script>
+        function showToast(message, type = 'info', duration = 3000) {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+            toast.innerHTML = `
+                <span class="toast-icon">${icons[type] || icons.info}</span>
+                <span class="toast-message">${message}</span>
+                <button class="toast-close" onclick="this.parentElement.remove()">×</button>
+            `;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease-out forwards';
+                setTimeout(() => toast.remove(), 300);
+            }, duration);
+        }
+
         document.getElementById('registerForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
             const password2 = document.getElementById('password2').value;
-            const messageEl = document.getElementById('message');
 
             if (password !== password2) {
-                messageEl.className = 'message error';
-                messageEl.textContent = 'Passwords do not match';
+                showToast('Passwords do not match', 'error');
                 return;
             }
 
@@ -54,16 +71,13 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    messageEl.className = 'message success';
-                    messageEl.textContent = data.message;
+                    showToast(data.message, 'success');
                     setTimeout(() => window.location.href = '/', 1500);
                 } else {
-                    messageEl.className = 'message error';
-                    messageEl.textContent = data.message;
+                    showToast(data.message, 'error');
                 }
             } catch (error) {
-                messageEl.className = 'message error';
-                messageEl.textContent = 'Error: ' + error.message;
+                showToast('Error: ' + error.message, 'error');
             }
         });
     </script>

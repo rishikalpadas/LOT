@@ -7,6 +7,22 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+    
+    <!-- Confirmation Modal -->
+    <div id="confirmModal" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-icon">⚠️</div>
+            <h3 id="confirmTitle">Confirm Delete</h3>
+            <p id="confirmMessage">Are you sure you want to delete this item?</p>
+            <div class="modal-buttons">
+                <button id="confirmCancel" class="btn btn-secondary">Cancel</button>
+                <button id="confirmOk" class="btn btn-danger">Delete</button>
+            </div>
+        </div>
+    </div>
+    
     <div class="navbar">
         <div class="navbar-content">
             <h1>🎰 Lottery Stock Management</h1>
@@ -22,9 +38,10 @@
             <div class="sidebar">
                 <nav>
                     <button class="nav-btn active" onclick="showTab('dashboard-tab')">Dashboard</button>
-                    <button class="nav-btn" onclick="showTab('stock-tab')">Add Stock Entry</button>
+                    <button class="nav-btn" onclick="showTab('stock-tab')">Purchase</button>
                     <button class="nav-btn" onclick="showTab('view-stock-tab')">View Stock</button>
                     <button class="nav-btn" onclick="showTab('export-tab')">Export Data</button>
+                    <button class="nav-btn" onclick="showTab('print-tab')">Print Report</button>
                     <button class="nav-btn admin-only" style="display:none;" onclick="showTab('admin-tab')">Admin Panel</button>
                 </nav>
             </div>
@@ -50,33 +67,101 @@
                 </div>
 
                 <!-- Add Stock Entry Tab -->
-                <div id="stock-tab" class="tab-content">
-                    <h2>Add Stock Entry</h2>
-                    <form id="stockForm" class="form-grid">
-                        <div class="form-group">
-                            <label for="entryDate">Date:</label>
-                            <input type="date" id="entryDate" required>
+                <div id="stock-tab" class="tab-content" data-focus-trap="true">
+                    <div class="compact-header">
+                        <h2>Purchase</h2>
+                        <span class="hint">Tab to cycle fields • Enter to submit • Esc to clear</span>
+                    </div>
+                    
+                    <!-- Session Settings (Date & Distributor) -->
+                    <div class="session-settings">
+                        <div class="session-field">
+                            <label for="entryDate">📅 Date:</label>
+                            <input type="date" id="entryDate" tabindex="1" data-field-order="1" required>
                         </div>
-                        <div class="form-group">
-                            <label for="categorySelect">Category:</label>
-                            <select id="categorySelect" required>
-                                <option value="">Select Category</option>
+                        <div class="session-field">
+                            <label for="distributorSelect">🏪 Distributor:</label>
+                            <select id="distributorSelect" tabindex="2" data-field-order="2" required>
+                                <option value="">Select Distributor</option>
                             </select>
                         </div>
-                        <div class="form-group">
-                            <label for="startNumber">Start Number:</label>
-                            <input type="text" id="startNumber" placeholder="e.g., 01234" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="endNumber">End Number:</label>
-                            <input type="text" id="endNumber" placeholder="Enter last digits" required>
-                        </div>
-                        <div class="form-info">
-                            Quantity: <span id="quantityDisplay">0</span> tickets
-                        </div>
-                        <button type="submit" class="btn btn-primary full-width">Add Entry</button>
+                    </div>
+                    
+                    <form id="stockForm" class="compact-form">
+                        <table class="entry-table">
+                            <thead>
+                                <tr>
+                                    <th>Category</th>
+                                    <th>Code</th>
+                                    <th>Start No.</th>
+                                    <th>End No.</th>
+                                    <th>Qty</th>
+                                    <th>Rate</th>
+                                    <th>Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="entry-row">
+                                    <td>
+                                        <select id="categorySelect" tabindex="3" data-field-order="3" required>
+                                            <option value="">Select</option>
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <input type="text" id="ticketCode" tabindex="4" data-field-order="4"
+                                               placeholder="61A" maxlength="10" autocomplete="off" style="text-transform: uppercase;" required>
+                                    </td>
+                                    <td>
+                                        <input type="text" id="startNumber" tabindex="5" data-field-order="5"
+                                               placeholder="05370" autocomplete="off" required>
+                                    </td>
+                                    <td>
+                                        <input type="text" id="endNumber" tabindex="6" data-field-order="6"
+                                               placeholder="99" autocomplete="off" required>
+                                    </td>
+                                    <td class="qty-cell">
+                                        <span id="quantityDisplay">0</span>
+                                    </td>
+                                    <td>
+                                        <input type="number" id="rateInput" tabindex="7" data-field-order="7"
+                                               placeholder="0" min="0.01" step="0.01" autocomplete="off" required>
+                                    </td>
+                                    <td class="qty-cell">
+                                        <span id="amountDisplay">0</span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </form>
-                    <div id="stockMessage" class="message"></div>
+                    
+                    <!-- Today's Entries -->
+                    <div class="session-entries">
+                        <h3>📋 Entries for <span id="sessionDateDisplay">Today</span></h3>
+                        <div id="sessionEntriesTable" class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Category</th>
+                                        <th>Code</th>
+                                        <th>Start No.</th>
+                                        <th>End No.</th>
+                                        <th>Qty</th>
+                                        <th>Rate</th>
+                                        <th>Amount</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="sessionEntriesBody">
+                                    <tr><td colspan="8" style="text-align:center; padding: 15px; color: #a0aec0;">No entries yet for this date</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="session-summary">
+                            <span>Total Entries: <strong id="sessionEntryCount">0</strong></span>
+                            <span>Total Quantity: <strong id="sessionTotalQty">0</strong></span>
+                            <span>Total Amount: <strong id="sessionTotalAmount">0</strong></span>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- View Stock Tab -->
@@ -93,11 +178,14 @@
                             <thead>
                                 <tr>
                                     <th>Date</th>
+                                    <th>Distributor</th>
                                     <th>Category</th>
+                                    <th>Code</th>
                                     <th>Start Number</th>
                                     <th>End Number</th>
                                     <th>Quantity</th>
-                                    <th>Notes</th>
+                                    <th>Rate</th>
+                                    <th>Amount</th>
                                     <th>Action</th>
                                 </tr>
                             </thead>
@@ -120,6 +208,46 @@
                     </div>
                 </div>
 
+                <!-- Print Report Tab -->
+                <div id="print-tab" class="tab-content">
+                    <h2>Print Stock Report</h2>
+                    <div class="print-section">
+                        <div class="form-group">
+                            <label for="printDate">Filter by Date (Optional):</label>
+                            <input type="date" id="printDate">
+                        </div>
+                        <div class="form-group">
+                            <label for="printCategory">Filter by Category (Optional):</label>
+                            <select id="printCategory">
+                                <option value="">All Categories</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="paperSize">Paper Size:</label>
+                            <select id="paperSize">
+                                <option value="a4">A4 (210 × 297 mm)</option>
+                                <option value="a5">A5 (148 × 210 mm)</option>
+                                <option value="letter">Letter (8.5 × 11 in)</option>
+                                <option value="legal">Legal (8.5 × 14 in)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="printOrientation">Orientation:</label>
+                            <select id="printOrientation">
+                                <option value="portrait">Portrait</option>
+                                <option value="landscape">Landscape</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary" onclick="printReport()">🖨️ Print Report</button>
+                        <button class="btn btn-secondary" onclick="previewReport()">👁️ Preview Report</button>
+                    </div>
+                    
+                    <div id="printPreview" class="print-preview" style="display:none;">
+                        <h3>Print Preview</h3>
+                        <div id="previewContent"></div>
+                    </div>
+                </div>
+
                 <!-- Admin Panel Tab -->
                 <div id="admin-tab" class="tab-content">
                     <h2>Admin Panel</h2>
@@ -127,10 +255,18 @@
                     <div class="admin-section">
                         <h3>Manage Categories</h3>
                         <form id="categoryForm" class="form-grid">
-                            <div class="form-group full-width">
-                                <label for="categoryName">Category Name (e.g., M25, D10, E5):</label>
+                            <div class="form-group">
+                                <label for="categoryName">Category Name:</label>
                                 <input type="text" id="categoryName" placeholder="M25" maxlength="5" style="text-transform: uppercase;" required>
-                                <small style="color: #718096;">Use format: Letter (M/D/E) + Number (e.g., M25, D10, E50)</small>
+                                <small style="color: #718096;">Format: M/D/E + Number</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="categoryPurchaseRate">Purchase Rate:</label>
+                                <input type="number" id="categoryPurchaseRate" placeholder="0" min="0" step="0.01">
+                            </div>
+                            <div class="form-group">
+                                <label for="categorySaleRate">Sale Rate:</label>
+                                <input type="number" id="categorySaleRate" placeholder="0" min="0" step="0.01">
                             </div>
                             <button type="submit" class="btn btn-primary" id="categorySubmitBtn">Add Category</button>
                         </form>
@@ -140,6 +276,24 @@
                     <div class="admin-section">
                         <h3>Existing Categories</h3>
                         <div id="categoriesList" class="categories-grid">
+                        </div>
+                    </div>
+
+                    <div class="admin-section">
+                        <h3>Manage Distributors</h3>
+                        <form id="distributorForm" class="form-grid">
+                            <div class="form-group full-width">
+                                <label for="distributorName">Distributor Name:</label>
+                                <input type="text" id="distributorName" placeholder="Enter distributor name" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary" id="distributorSubmitBtn">Add Distributor</button>
+                        </form>
+                        <div id="distributorMessage" class="message"></div>
+                    </div>
+
+                    <div class="admin-section">
+                        <h3>Existing Distributors</h3>
+                        <div id="distributorsList" class="categories-grid">
                         </div>
                     </div>
 

@@ -7,6 +7,9 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+    
     <div class="container">
         <div class="auth-form">
             <h2>Login</h2>
@@ -22,11 +25,27 @@
                 <button type="submit" class="btn btn-primary">Login</button>
                 <p class="auth-link">Don't have an account? <a href="/register">Register here</a></p>
             </form>
-            <div id="message" class="message"></div>
         </div>
     </div>
 
     <script>
+        function showToast(message, type = 'info', duration = 3000) {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+            toast.innerHTML = `
+                <span class="toast-icon">${icons[type] || icons.info}</span>
+                <span class="toast-message">${message}</span>
+                <button class="toast-close" onclick="this.parentElement.remove()">×</button>
+            `;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease-out forwards';
+                setTimeout(() => toast.remove(), 300);
+            }, duration);
+        }
+
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const username = document.getElementById('username').value;
@@ -40,19 +59,15 @@
                 });
 
                 const data = await response.json();
-                const messageEl = document.getElementById('message');
 
                 if (data.success) {
-                    messageEl.className = 'message success';
-                    messageEl.textContent = data.message;
+                    showToast(data.message, 'success');
                     setTimeout(() => window.location.href = '/', 1500);
                 } else {
-                    messageEl.className = 'message error';
-                    messageEl.textContent = data.message;
+                    showToast(data.message, 'error');
                 }
             } catch (error) {
-                document.getElementById('message').className = 'message error';
-                document.getElementById('message').textContent = 'Error: ' + error.message;
+                showToast('Error: ' + error.message, 'error');
             }
         });
     </script>
