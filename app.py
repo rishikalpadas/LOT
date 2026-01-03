@@ -70,7 +70,12 @@ class Distributor(db.Model):
     name = db.Column(db.String(100), nullable=False, unique=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     entries = db.relationship('StockEntry', backref='distributor', lazy=True)
-    sale_entries = db.relationship('SaleEntry', backref='distributor', lazy=True)
+
+class Party(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False, unique=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    sale_entries = db.relationship('SaleEntry', backref='party', lazy=True)
 
 class StockEntry(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -90,7 +95,7 @@ class StockEntry(db.Model):
 class SaleEntry(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     category_id = db.Column(db.Integer, db.ForeignKey('category.id'), nullable=False)
-    distributor_id = db.Column(db.Integer, db.ForeignKey('distributor.id'), nullable=True)
+    party_id = db.Column(db.Integer, db.ForeignKey('party.id'), nullable=True)
     entry_date = db.Column(db.Date, nullable=False)
     ticket_code = db.Column(db.String(10), nullable=True)  # Manual code like 61A, 43G
     start_number = db.Column(TextString(20), nullable=False)
@@ -341,6 +346,77 @@ def manage_distributor(distributor_id):
         'name': distributor.name
     })
 
+# Party API endpoints
+@app.route('/api/parties', methods=['GET', 'POST'])
+@login_required
+def parties():
+    if request.method == 'POST':
+        if not current_user.is_admin:
+            return jsonify({'success': False, 'message': 'Admin access required'}), 403
+        
+        data = request.get_json()
+        name = data.get('name', '').strip()
+        
+        if not name:
+            return jsonify({'success': False, 'message': 'Party name is required'}), 400
+        
+        # Check if party already exists
+        if Party.query.filter_by(name=name).first():
+            return jsonify({'success': False, 'message': 'Party already exists'}), 400
+        
+        party = Party(name=name)
+        db.session.add(party)
+        db.session.commit()
+        
+        return jsonify({'success': True, 'id': party.id, 'message': 'Party created'})
+    
+    parties = Party.query.all()
+    return jsonify([{
+        'id': p.id,
+        'name': p.name
+    } for p in parties])
+
+@app.route('/api/parties/<int:party_id>', methods=['GET', 'PUT', 'DELETE'])
+@login_required
+def manage_party(party_id):
+    party = Party.query.get(party_id)
+    if not party:
+        return jsonify({'success': False, 'message': 'Party not found'}), 404
+    
+    if request.method == 'DELETE':
+        if not current_user.is_admin:
+            return jsonify({'success': False, 'message': 'Admin access required'}), 403
+        
+        db.session.delete(party)
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Party deleted'})
+    
+    if request.method == 'PUT':
+        if not current_user.is_admin:
+            return jsonify({'success': False, 'message': 'Admin access required'}), 403
+        
+        data = request.get_json()
+        name = data.get('name', '').strip()
+        
+        if not name:
+            return jsonify({'success': False, 'message': 'Party name is required'}), 400
+        
+        # Check if new name already exists (excluding current party)
+        existing = Party.query.filter_by(name=name).first()
+        if existing and existing.id != party_id:
+            return jsonify({'success': False, 'message': 'Party already exists'}), 400
+        
+        party.name = name
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Party updated'})
+    
+    # GET
+    return jsonify({
+        'id': party.id,
+        'name': party.name
+    })
+
 # Helper function to check for overlapping ticket ranges
 def check_overlapping_range(category_id, ticket_code, start_num, end_num, exclude_entry_id=None):
     """
@@ -533,6 +609,164 @@ def manage_stock_entry(entry_id):
         db.session.rollback()
         return jsonify({'success': False, 'message': str(e)}), 400
 
+# API endpoint to check stock availability and find matching codes for a ticket range
+@app.route('/api/check-stock-range', methods=['POST'])
+@login_required
+def check_stock_range():
+    """
+    Check if a ticket range exists in stock and return matching codes.
+    Used by Sale screen to auto-populate or prompt for code.
+    """
+    data = request.get_json()
+    category_id = int(data.get('category_id'))
+    start_num = data.get('start_number')
+    end_num = data.get('end_number')
+    
+    new_start = int(start_num)
+    new_end = int(end_num)
+    
+    # Get all stock entries for this category (any code)
+    stock_entries = StockEntry.query.filter_by(category_id=category_id).all()
+    
+    # Find all stock entries that contain the requested range
+    matching_entries = []
+    for stock in stock_entries:
+        stock_start = int(stock.start_number)
+        stock_end = int(stock.end_number)
+        
+        # Check if requested range is fully contained within this stock entry
+        if new_start >= stock_start and new_end <= stock_end:
+            matching_entries.append({
+                'id': stock.id,
+                'ticket_code': stock.ticket_code or '',
+                'start_number': stock.start_number,
+                'end_number': stock.end_number
+            })
+    
+    if len(matching_entries) == 0:
+        return jsonify({
+            'available': False,
+            'message': 'Tickets not available in stock',
+            'matches': []
+        })
+    elif len(matching_entries) == 1:
+        return jsonify({
+            'available': True,
+            'auto_code': matching_entries[0]['ticket_code'],
+            'matches': matching_entries
+        })
+    else:
+        # Multiple matches with different codes
+        return jsonify({
+            'available': True,
+            'multiple': True,
+            'message': 'Multiple stock entries found. Please specify the code.',
+            'matches': matching_entries
+        })
+
+# Helper function to check if ticket range is available in stock and return the matching stock entry
+def find_stock_entry_for_range(category_id, ticket_code, start_num, end_num):
+    """
+    Find the stock entry that contains the given ticket range.
+    Returns the stock entry if found, None otherwise.
+    """
+    new_start = int(start_num)
+    new_end = int(end_num)
+    
+    # Get all stock entries for this category and ticket code
+    stock_query = StockEntry.query.filter_by(category_id=category_id)
+    if ticket_code:
+        stock_query = stock_query.filter_by(ticket_code=ticket_code)
+    else:
+        stock_query = stock_query.filter(StockEntry.ticket_code.is_(None))
+    
+    stock_entries = stock_query.all()
+    
+    # Find the stock entry that fully contains the requested range
+    for stock in stock_entries:
+        stock_start = int(stock.start_number)
+        stock_end = int(stock.end_number)
+        
+        # Check if requested range is fully contained within this stock entry
+        if new_start >= stock_start and new_end <= stock_end:
+            return stock
+    
+    return None
+
+# Helper function to deduct tickets from stock by splitting the stock entry
+def deduct_from_stock(stock_entry, sell_start, sell_end, category):
+    """
+    Deduct a ticket range from a stock entry by splitting it.
+    Returns list of new stock entries created (for the remaining ranges).
+    """
+    stock_start = int(stock_entry.start_number)
+    stock_end = int(stock_entry.end_number)
+    sell_start = int(sell_start)
+    sell_end = int(sell_end)
+    
+    # Preserve leading zeros format
+    num_length = len(stock_entry.start_number)
+    
+    new_entries = []
+    denomination = int(category.denomination) if category else 1
+    
+    # Case 1: Selling the entire stock entry
+    if sell_start == stock_start and sell_end == stock_end:
+        # Delete the entire stock entry
+        db.session.delete(stock_entry)
+        return new_entries
+    
+    # Case 2: Selling from the beginning
+    elif sell_start == stock_start:
+        # Update the original entry to start after the sold range
+        new_start = sell_end + 1
+        stock_entry.start_number = str(new_start).zfill(num_length)
+        ticket_count = stock_end - new_start + 1
+        stock_entry.quantity = ticket_count * denomination
+        stock_entry.amount = (stock_entry.rate or 0) * stock_entry.quantity
+        return new_entries
+    
+    # Case 3: Selling from the end
+    elif sell_end == stock_end:
+        # Update the original entry to end before the sold range
+        new_end = sell_start - 1
+        stock_entry.end_number = str(new_end).zfill(num_length)
+        ticket_count = new_end - stock_start + 1
+        stock_entry.quantity = ticket_count * denomination
+        stock_entry.amount = (stock_entry.rate or 0) * stock_entry.quantity
+        return new_entries
+    
+    # Case 4: Selling from the middle - need to split into two entries
+    else:
+        # Update original entry for the first part (before sold range)
+        new_end_first = sell_start - 1
+        stock_entry.end_number = str(new_end_first).zfill(num_length)
+        ticket_count_first = new_end_first - stock_start + 1
+        stock_entry.quantity = ticket_count_first * denomination
+        stock_entry.amount = (stock_entry.rate or 0) * stock_entry.quantity
+        
+        # Create new entry for the second part (after sold range)
+        new_start_second = sell_end + 1
+        ticket_count_second = stock_end - new_start_second + 1
+        
+        new_entry = StockEntry(
+            category_id=stock_entry.category_id,
+            distributor_id=stock_entry.distributor_id,
+            entry_date=stock_entry.entry_date,
+            ticket_code=stock_entry.ticket_code,
+            start_number=str(new_start_second).zfill(num_length),
+            end_number=str(stock_end).zfill(num_length),
+            quantity=ticket_count_second * denomination,
+            rate=stock_entry.rate,
+            amount=(stock_entry.rate or 0) * ticket_count_second * denomination,
+            notes=stock_entry.notes,
+            created_by=stock_entry.created_by
+        )
+        db.session.add(new_entry)
+        new_entries.append(new_entry)
+        
+        return new_entries
+
 # Sale Entry API Endpoints
 @app.route('/api/sale-entries', methods=['GET', 'POST'])
 @login_required
@@ -542,24 +776,40 @@ def sale_entries():
             data = request.get_json()
             logger.info(f"[SALE-ENTRY POST] Received data: {data}")
             
-            # Handle distributor_id - can be empty string, None, or a number
-            distributor_id = data.get('distributor_id')
-            if distributor_id == '' or distributor_id is None:
-                distributor_id = None
+            # Handle party_id - can be empty string, None, or a number
+            party_id = data.get('party_id')
+            if party_id == '' or party_id is None:
+                party_id = None
             else:
-                distributor_id = int(distributor_id)
+                party_id = int(party_id)
+            
+            category_id = int(data.get('category_id'))
+            ticket_code = data.get('ticket_code', '').strip().upper() or None
+            start_number = data.get('start_number')
+            end_number = data.get('end_number')
+            
+            # Find the stock entry that contains this range
+            stock_entry = find_stock_entry_for_range(category_id, ticket_code, start_number, end_number)
+            if not stock_entry:
+                return jsonify({'success': False, 'message': f'Tickets {start_number}-{end_number} are not available in stock'}), 400
+            
+            # Get category for denomination
+            category = Category.query.get(category_id)
             
             rate = float(data.get('rate', 0))
             quantity = int(data.get('quantity', 0))
             amount = rate * quantity
             
+            # Deduct from stock (split the stock entry)
+            deduct_from_stock(stock_entry, start_number, end_number, category)
+            
             entry = SaleEntry(
-                category_id=int(data.get('category_id')),
-                distributor_id=distributor_id,
+                category_id=category_id,
+                party_id=party_id,
                 entry_date=datetime.strptime(data.get('entry_date'), '%Y-%m-%d').date(),
-                ticket_code=data.get('ticket_code', '').strip().upper() or None,
-                start_number=data.get('start_number'),
-                end_number=data.get('end_number'),
+                ticket_code=ticket_code,
+                start_number=start_number,
+                end_number=end_number,
                 quantity=quantity,
                 rate=rate,
                 amount=amount,
@@ -588,13 +838,13 @@ def sale_entries():
     result = []
     for e in entries:
         category = Category.query.get(e.category_id)
-        distributor = Distributor.query.get(e.distributor_id) if e.distributor_id else None
+        party = Party.query.get(e.party_id) if e.party_id else None
         result.append({
             'id': e.id,
             'category': category.name if category else 'Unknown',
             'category_id': e.category_id,
-            'distributor': distributor.name if distributor else '',
-            'distributor_id': e.distributor_id,
+            'party': party.name if party else '',
+            'party_id': e.party_id,
             'date': e.entry_date.strftime('%Y-%m-%d'),
             'ticket_code': e.ticket_code or '',
             'start_number': e.start_number,
@@ -607,6 +857,86 @@ def sale_entries():
     
     return jsonify(result)
 
+# Helper function to restore tickets back to stock when a sale is deleted
+def restore_to_stock(sale_entry):
+    """
+    Restore sold tickets back to stock.
+    Tries to merge with adjacent stock entries if possible, otherwise creates a new entry.
+    """
+    category_id = sale_entry.category_id
+    ticket_code = sale_entry.ticket_code
+    start_num = int(sale_entry.start_number)
+    end_num = int(sale_entry.end_number)
+    num_length = len(sale_entry.start_number)
+    
+    # Get category for denomination
+    category = Category.query.get(category_id)
+    denomination = int(category.denomination) if category else 1
+    
+    # Find adjacent stock entries to merge with
+    stock_query = StockEntry.query.filter_by(category_id=category_id)
+    if ticket_code:
+        stock_query = stock_query.filter_by(ticket_code=ticket_code)
+    else:
+        stock_query = stock_query.filter(StockEntry.ticket_code.is_(None))
+    
+    stock_entries = stock_query.all()
+    
+    # Look for entries that are immediately adjacent
+    left_entry = None  # Entry that ends just before our start
+    right_entry = None  # Entry that starts just after our end
+    
+    for stock in stock_entries:
+        stock_start = int(stock.start_number)
+        stock_end = int(stock.end_number)
+        
+        if stock_end == start_num - 1:
+            left_entry = stock
+        if stock_start == end_num + 1:
+            right_entry = stock
+    
+    # Merge logic
+    if left_entry and right_entry:
+        # Merge all three: extend left to include right, delete right
+        left_entry.end_number = right_entry.end_number
+        new_start = int(left_entry.start_number)
+        new_end = int(right_entry.end_number)
+        ticket_count = new_end - new_start + 1
+        left_entry.quantity = ticket_count * denomination
+        left_entry.amount = (left_entry.rate or 0) * left_entry.quantity
+        db.session.delete(right_entry)
+    elif left_entry:
+        # Extend left entry to include our range
+        left_entry.end_number = str(end_num).zfill(num_length)
+        new_start = int(left_entry.start_number)
+        ticket_count = end_num - new_start + 1
+        left_entry.quantity = ticket_count * denomination
+        left_entry.amount = (left_entry.rate or 0) * left_entry.quantity
+    elif right_entry:
+        # Extend right entry to include our range
+        right_entry.start_number = str(start_num).zfill(num_length)
+        new_end = int(right_entry.end_number)
+        ticket_count = new_end - start_num + 1
+        right_entry.quantity = ticket_count * denomination
+        right_entry.amount = (right_entry.rate or 0) * right_entry.quantity
+    else:
+        # Create new stock entry
+        ticket_count = end_num - start_num + 1
+        new_entry = StockEntry(
+            category_id=category_id,
+            distributor_id=None,  # Original distributor info is lost
+            entry_date=sale_entry.entry_date,
+            ticket_code=ticket_code,
+            start_number=str(start_num).zfill(num_length),
+            end_number=str(end_num).zfill(num_length),
+            quantity=ticket_count * denomination,
+            rate=0,  # Rate info from original purchase is lost
+            amount=0,
+            notes='Restored from cancelled sale',
+            created_by=sale_entry.created_by
+        )
+        db.session.add(new_entry)
+
 @app.route('/api/sale-entries/<int:entry_id>', methods=['PUT', 'DELETE'])
 @login_required
 def manage_sale_entry(entry_id):
@@ -615,24 +945,18 @@ def manage_sale_entry(entry_id):
         return jsonify({'success': False, 'message': 'Entry not found'}), 404
     
     if request.method == 'DELETE':
+        # Restore tickets back to stock before deleting
+        restore_to_stock(entry)
         db.session.delete(entry)
         db.session.commit()
-        return jsonify({'success': True, 'message': 'Entry deleted'})
+        return jsonify({'success': True, 'message': 'Sale entry deleted and tickets restored to stock'})
     
-    # PUT - Update entry
+    # PUT - Update entry (only allow rate changes, not ticket range changes)
     data = request.get_json()
     
     try:
-        if 'category_id' in data:
-            entry.category_id = int(data['category_id'])
-        if 'ticket_code' in data:
-            entry.ticket_code = data['ticket_code'].strip().upper() if data['ticket_code'] else None
-        if 'start_number' in data:
-            entry.start_number = data['start_number']
-        if 'end_number' in data:
-            entry.end_number = data['end_number']
-        if 'quantity' in data:
-            entry.quantity = int(data['quantity'])
+        # For simplicity, only allow updating rate (not changing ticket range)
+        # Changing ticket range would require complex stock restoration/re-deduction
         if 'rate' in data:
             entry.rate = float(data['rate'])
         # Recalculate amount
@@ -747,6 +1071,15 @@ if __name__ == '__main__':
         if 'sale_rate' not in category_columns:
             db.session.execute(text('ALTER TABLE category ADD COLUMN sale_rate FLOAT DEFAULT 0'))
             logger.info("Added 'sale_rate' column to category table")
+        
+        # Migrate sale_entry table if it exists
+        table_names = inspector.get_table_names()
+        if 'sale_entry' in table_names:
+            sale_columns = [col['name'] for col in inspector.get_columns('sale_entry')]
+            
+            if 'party_id' not in sale_columns:
+                db.session.execute(text('ALTER TABLE sale_entry ADD COLUMN party_id INTEGER REFERENCES party(id)'))
+                logger.info("Added 'party_id' column to sale_entry table")
         
         db.session.commit()
         

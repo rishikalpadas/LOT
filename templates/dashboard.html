@@ -110,7 +110,7 @@
                                     </td>
                                     <td>
                                         <input type="text" id="ticketCode" tabindex="4" data-field-order="4"
-                                               placeholder="61A" maxlength="10" autocomplete="off" style="text-transform: uppercase;" required>
+                                               placeholder="61A" maxlength="10" autocomplete="off" style="text-transform: uppercase;">
                                     </td>
                                     <td>
                                         <input type="text" id="startNumber" tabindex="5" data-field-order="5"
@@ -172,16 +172,16 @@
                         <span class="hint">Tab to cycle fields • Enter to submit • Esc to clear</span>
                     </div>
                     
-                    <!-- Session Settings (Date & Distributor) -->
+                    <!-- Session Settings (Date & Party) -->
                     <div class="session-settings">
                         <div class="session-field">
                             <label for="saleEntryDate">📅 Date:</label>
                             <input type="date" id="saleEntryDate" tabindex="1" data-field-order="1" required>
                         </div>
                         <div class="session-field">
-                            <label for="saleDistributorSelect">🏪 Distributor:</label>
-                            <select id="saleDistributorSelect" tabindex="2" data-field-order="2" required>
-                                <option value="">Select Distributor</option>
+                            <label for="salePartySelect">👤 Party:</label>
+                            <select id="salePartySelect" tabindex="2" data-field-order="2" required>
+                                <option value="">Select Party</option>
                             </select>
                         </div>
                     </div>
@@ -208,7 +208,7 @@
                                     </td>
                                     <td>
                                         <input type="text" id="saleTicketCode" tabindex="4" data-field-order="4"
-                                               placeholder="61A" maxlength="10" autocomplete="off" style="text-transform: uppercase;" required>
+                                               placeholder="Auto" maxlength="10" autocomplete="off" style="text-transform: uppercase;">
                                     </td>
                                     <td>
                                         <input type="text" id="saleStartNumber" tabindex="5" data-field-order="5"
@@ -393,6 +393,24 @@
                     <div class="admin-section">
                         <h3>Existing Distributors</h3>
                         <div id="distributorsList" class="categories-grid">
+                        </div>
+                    </div>
+
+                    <div class="admin-section">
+                        <h3>Manage Parties</h3>
+                        <form id="partyForm" class="form-grid">
+                            <div class="form-group full-width">
+                                <label for="partyName">Party Name:</label>
+                                <input type="text" id="partyName" placeholder="Enter party name" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary" id="partySubmitBtn">Add Party</button>
+                        </form>
+                        <div id="partyMessage" class="message"></div>
+                    </div>
+
+                    <div class="admin-section">
+                        <h3>Existing Parties</h3>
+                        <div id="partiesList" class="categories-grid">
                         </div>
                     </div>
 

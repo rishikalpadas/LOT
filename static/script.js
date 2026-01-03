@@ -1,8 +1,10 @@
 let isAdmin = false;
 let editingCategoryId = null;
 let editingDistributorId = null;
+let editingPartyId = null;
 let categoriesData = [];
 let distributorsData = [];
+let partiesData = [];
 
 // Toast notification system
 function showToast(message, type = 'info', duration = 3000) {
@@ -87,6 +89,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await checkAdminStatus();
     await loadCategories();
     await loadDistributors();
+    await loadParties();
     await loadStats();
     await loadStockEntries();
     await loadSessionEntries();
@@ -98,6 +101,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('stockForm').addEventListener('submit', handleAddStockEntry);
     document.getElementById('categoryForm').addEventListener('submit', handleAddCategory);
     document.getElementById('distributorForm').addEventListener('submit', handleAddDistributor);
+    document.getElementById('partyForm').addEventListener('submit', handleAddParty);
     document.getElementById('adminForm').addEventListener('submit', handleMakeAdmin);
     
     // End number: auto-complete on blur, submit on Enter
@@ -411,6 +415,104 @@ function editDistributor(id, name) {
     document.getElementById('distributorName').focus();
 }
 
+// Party Management Functions
+async function loadParties() {
+    try {
+        const response = await fetch('/api/parties');
+        const parties = await response.json();
+        
+        // Store globally
+        partiesData = parties;
+        
+        // Display parties in admin panel
+        displayParties(parties);
+    } catch (error) {
+        console.error('Error loading parties:', error);
+    }
+}
+
+function displayParties(parties) {
+    const container = document.getElementById('partiesList');
+    
+    if (!container) return;
+    
+    if (parties.length === 0) {
+        container.innerHTML = '<p>No parties yet. Create one using the form above.</p>';
+        return;
+    }
+    
+    container.innerHTML = parties.map(party => `
+        <div class="category-card">
+            <div>
+                <h4>${party.name}</h4>
+                <div style="display: flex; gap: 8px; margin-top: 10px;">
+                    <button class="btn-secondary" style="padding: 6px 12px; font-size: 12px;" onclick="editParty(${party.id}, '${party.name.replace(/'/g, "\\'")}')">Edit</button>
+                    <button class="btn-danger" style="padding: 6px 12px; font-size: 12px;" onclick="deleteParty(${party.id})">Delete</button>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function handleAddParty(e) {
+    e.preventDefault();
+    
+    const partyName = document.getElementById('partyName').value.trim();
+    
+    try {
+        const url = editingPartyId ? `/api/parties/${editingPartyId}` : '/api/parties';
+        const method = editingPartyId ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: partyName })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast(editingPartyId ? 'Party updated!' : 'Party created!', 'success');
+            
+            document.getElementById('partyName').value = '';
+            editingPartyId = null;
+            document.getElementById('partySubmitBtn').textContent = 'Add Party';
+            
+            await loadParties();
+        } else {
+            showToast(data.message, 'error');
+        }
+    } catch (error) {
+        showToast('Error: ' + error.message, 'error');
+    }
+}
+
+async function deleteParty(id) {
+    const confirmed = await showConfirm('Are you sure you want to delete this party?', 'Delete Party');
+    if (!confirmed) return;
+    
+    try {
+        const response = await fetch(`/api/parties/${id}`, { method: 'DELETE' });
+        const data = await response.json();
+        
+        if (data.success) {
+            await loadParties();
+            showToast('Party deleted successfully', 'success');
+        } else {
+            showToast(data.message, 'error');
+        }
+    } catch (error) {
+        showToast('Error: ' + error.message, 'error');
+    }
+}
+
+function editParty(id, name) {
+    editingPartyId = id;
+    document.getElementById('partyName').value = name;
+    document.getElementById('partySubmitBtn').textContent = 'Update Party';
+    document.getElementById('partyName').focus();
+}
+
 function displayCategories(categories) {
     const container = document.getElementById('categoriesList');
     
@@ -672,12 +774,6 @@ async function submitStockEntry() {
     if (!categoryId) {
         showToast('Please select a category', 'warning');
         document.getElementById('categorySelect').focus();
-        return;
-    }
-    
-    if (!ticketCode) {
-        showToast('Please enter ticket code', 'warning');
-        document.getElementById('ticketCode').focus();
         return;
     }
     
@@ -1594,8 +1690,8 @@ function initializeSaleTab() {
     // Populate categories for sale
     loadSaleCategories();
     
-    // Populate distributors for sale
-    loadSaleDistributors();
+    // Populate parties for sale
+    loadSaleParties();
     
     // Load session entries
     loadSaleSessionEntries();
@@ -1620,14 +1716,14 @@ function loadSaleCategories() {
     });
 }
 
-// Load distributors for sale dropdown
-function loadSaleDistributors() {
-    const select = document.getElementById('saleDistributorSelect');
-    select.innerHTML = '<option value="">Select Distributor</option>';
-    distributorsData.forEach(dist => {
+// Load parties for sale dropdown
+function loadSaleParties() {
+    const select = document.getElementById('salePartySelect');
+    select.innerHTML = '<option value="">Select Party</option>';
+    partiesData.forEach(party => {
         const option = document.createElement('option');
-        option.value = dist.id;
-        option.textContent = dist.name;
+        option.value = party.id;
+        option.textContent = party.name;
         select.appendChild(option);
     });
 }
@@ -1750,9 +1846,9 @@ function handleSaleRateKeydown(e) {
 // Submit sale entry
 async function submitSaleEntry() {
     const entryDate = document.getElementById('saleEntryDate').value;
-    const distributorId = document.getElementById('saleDistributorSelect').value;
+    const partyId = document.getElementById('salePartySelect').value;
     const categoryId = document.getElementById('saleCategorySelect').value;
-    const ticketCode = document.getElementById('saleTicketCode').value.toUpperCase();
+    let ticketCode = document.getElementById('saleTicketCode').value.toUpperCase();
     const startNumber = document.getElementById('saleStartNumber').value;
     let endNumber = document.getElementById('saleEndNumber').value;
     const rate = parseFloat(document.getElementById('saleRateInput').value) || 0;
@@ -1764,9 +1860,9 @@ async function submitSaleEntry() {
         return;
     }
     
-    if (!distributorId) {
-        showToast('Please select a distributor', 'warning');
-        document.getElementById('saleDistributorSelect').focus();
+    if (!partyId) {
+        showToast('Please select a party', 'warning');
+        document.getElementById('salePartySelect').focus();
         return;
     }
     
@@ -1776,11 +1872,7 @@ async function submitSaleEntry() {
         return;
     }
     
-    if (!ticketCode) {
-        showToast('Please enter a ticket code', 'warning');
-        document.getElementById('saleTicketCode').focus();
-        return;
-    }
+    // Code is optional - will be auto-detected or prompted
     
     if (!startNumber) {
         showToast('Please enter a start number', 'warning');
@@ -1804,6 +1896,45 @@ async function submitSaleEntry() {
     endNumber = completeSaleEndNumber();
     document.getElementById('saleEndNumber').value = endNumber;
     
+    // If no code provided, check stock for auto-detection
+    if (!ticketCode) {
+        try {
+            const checkResponse = await fetch('/api/check-stock-range', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    category_id: categoryId,
+                    start_number: startNumber,
+                    end_number: endNumber
+                })
+            });
+            
+            const checkData = await checkResponse.json();
+            
+            if (!checkData.available) {
+                showToast(checkData.message || 'Tickets not available in stock', 'error');
+                return;
+            }
+            
+            if (checkData.multiple) {
+                // Multiple matches - user must specify code
+                const codes = checkData.matches.map(m => m.ticket_code || '(no code)').join(', ');
+                showToast(`Multiple stock entries found with codes: ${codes}. Please enter the code.`, 'warning');
+                document.getElementById('saleTicketCode').focus();
+                return;
+            }
+            
+            // Single match - use the auto-detected code
+            ticketCode = checkData.auto_code || '';
+            if (ticketCode) {
+                document.getElementById('saleTicketCode').value = ticketCode;
+            }
+        } catch (error) {
+            showToast('Error checking stock: ' + error.message, 'error');
+            return;
+        }
+    }
+    
     // Calculate quantity
     const start = parseInt(startNumber);
     const end = parseInt(endNumber);
@@ -1823,7 +1954,7 @@ async function submitSaleEntry() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 entry_date: entryDate,
-                distributor_id: distributorId,
+                party_id: partyId,
                 category_id: categoryId,
                 ticket_code: ticketCode,
                 start_number: startNumber,
@@ -1886,7 +2017,6 @@ async function loadSaleSessionEntries() {
                     <td>${entry.rate || 0}</td>
                     <td class="cell-amount">${(entry.amount || 0).toFixed(2)}</td>
                     <td class="cell-actions">
-                        <button class="btn-edit btn-sm" onclick="startSaleInlineEdit(${entry.id}, ${entry.category_id}, '${entry.ticket_code || ''}', '${entry.start_number}', '${entry.end_number}', ${entry.rate || 0})">Edit</button>
                         <button class="btn-delete btn-sm" onclick="deleteSaleSessionEntry(${entry.id})">Delete</button>
                     </td>
                 </tr>
@@ -2135,7 +2265,7 @@ function handleSaleFocusTrap(e) {
     
     const fields = [
         document.getElementById('saleEntryDate'),
-        document.getElementById('saleDistributorSelect'),
+        document.getElementById('salePartySelect'),
         document.getElementById('saleCategorySelect'),
         document.getElementById('saleTicketCode'),
         document.getElementById('saleStartNumber'),
