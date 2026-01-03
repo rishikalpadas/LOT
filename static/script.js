@@ -1254,6 +1254,347 @@ async function exportToCSV() {
     }
 }
 
+// ==================== EXPORT & PRINT FUNCTIONS ====================
+
+// Export Purchase entries to CSV
+async function exportPurchaseCSV() {
+    const dateFilter = document.getElementById('entryDate').value;
+    const distributorId = document.getElementById('distributorSelect').value;
+    
+    if (!dateFilter) {
+        showToast('Please select a date', 'error');
+        return;
+    }
+    
+    try {
+        // Get session entries for the selected date and distributor
+        let url = `/api/stock-entries?date=${dateFilter}`;
+        if (distributorId) {
+            url += `&distributor_id=${distributorId}`;
+        }
+        
+        const response = await fetch(url);
+        const entries = await response.json();
+        
+        if (entries.length === 0) {
+            showToast('No entries to export', 'error');
+            return;
+        }
+        
+        // Get distributor name
+        const distributor = distributorsData.find(d => d.id == distributorId);
+        const distributorName = distributor ? distributor.name : 'All';
+        
+        // Create CSV content
+        let csv = 'Date,Distributor,Category,Code,Start Number,End Number,Quantity,Rate,Amount\n';
+        entries.forEach(entry => {
+            csv += `${entry.date},"${distributorName}","${entry.category}",${entry.ticket_code || ''},${entry.start_number},${entry.end_number},${entry.quantity},${entry.rate || 0},${entry.amount || 0}\n`;
+        });
+        
+        // Download CSV
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url2 = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url2;
+        a.download = `purchase_${dateFilter}_${distributorName.replace(/\s+/g, '_')}.csv`;
+        a.click();
+        window.URL.revokeObjectURL(url2);
+        
+        showToast('Purchase data exported successfully', 'success');
+    } catch (error) {
+        showToast('Error exporting: ' + error.message, 'error');
+    }
+}
+
+// Export Sale entries to CSV
+async function exportSaleCSV() {
+    const dateFilter = document.getElementById('saleEntryDate').value;
+    const partyId = document.getElementById('salePartySelect').value;
+    
+    if (!dateFilter) {
+        showToast('Please select a date', 'error');
+        return;
+    }
+    
+    try {
+        let url = `/api/sale-entries?date=${dateFilter}`;
+        if (partyId) {
+            url += `&party_id=${partyId}`;
+        }
+        
+        const response = await fetch(url);
+        const entries = await response.json();
+        
+        if (entries.length === 0) {
+            showToast('No entries to export', 'error');
+            return;
+        }
+        
+        // Get party name
+        const party = partiesData.find(p => p.id == partyId);
+        const partyName = party ? party.name : 'All';
+        
+        // Create CSV content
+        let csv = 'Date,Party,Category,Code,Start Number,End Number,Quantity,Rate,Amount\n';
+        entries.forEach(entry => {
+            csv += `${entry.date},"${partyName}","${entry.category}",${entry.ticket_code || ''},${entry.start_number},${entry.end_number},${entry.quantity},${entry.rate || 0},${entry.amount || 0}\n`;
+        });
+        
+        // Download CSV
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url2 = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url2;
+        a.download = `sale_${dateFilter}_${partyName.replace(/\s+/g, '_')}.csv`;
+        a.click();
+        window.URL.revokeObjectURL(url2);
+        
+        showToast('Sale data exported successfully', 'success');
+    } catch (error) {
+        showToast('Error exporting: ' + error.message, 'error');
+    }
+}
+
+// Export Stock entries to CSV
+async function exportStockCSV() {
+    const dateFilter = document.getElementById('filterDate').value;
+    
+    try {
+        let url = '/api/stock-entries';
+        if (dateFilter) {
+            url += `?date=${dateFilter}`;
+        }
+        
+        const response = await fetch(url);
+        const entries = await response.json();
+        
+        if (entries.length === 0) {
+            showToast('No entries to export', 'error');
+            return;
+        }
+        
+        // Create CSV content
+        let csv = 'Date,Distributor,Category,Code,Start Number,End Number,Quantity,Rate,Amount\n';
+        entries.forEach(entry => {
+            csv += `${entry.date},"${entry.distributor || ''}","${entry.category}",${entry.ticket_code || ''},${entry.start_number},${entry.end_number},${entry.quantity},${entry.rate || 0},${entry.amount || 0}\n`;
+        });
+        
+        // Download CSV
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url2 = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url2;
+        a.download = `stock_${dateFilter || 'all'}.csv`;
+        a.click();
+        window.URL.revokeObjectURL(url2);
+        
+        showToast('Stock data exported successfully', 'success');
+    } catch (error) {
+        showToast('Error exporting: ' + error.message, 'error');
+    }
+}
+
+// Print Purchase Report
+async function printPurchaseReport() {
+    const dateFilter = document.getElementById('entryDate').value;
+    const distributorId = document.getElementById('distributorSelect').value;
+    
+    if (!dateFilter) {
+        showToast('Please select a date', 'error');
+        return;
+    }
+    
+    try {
+        let url = `/api/stock-entries?date=${dateFilter}`;
+        if (distributorId) {
+            url += `&distributor_id=${distributorId}`;
+        }
+        
+        const response = await fetch(url);
+        const entries = await response.json();
+        
+        if (entries.length === 0) {
+            showToast('No entries to print', 'error');
+            return;
+        }
+        
+        const distributor = distributorsData.find(d => d.id == distributorId);
+        const distributorName = distributor ? distributor.name : 'All Distributors';
+        
+        generatePrintReport('Purchase Report', entries, dateFilter, distributorName);
+    } catch (error) {
+        showToast('Error generating report: ' + error.message, 'error');
+    }
+}
+
+// Print Sale Report
+async function printSaleReport() {
+    const dateFilter = document.getElementById('saleEntryDate').value;
+    const partyId = document.getElementById('salePartySelect').value;
+    
+    if (!dateFilter) {
+        showToast('Please select a date', 'error');
+        return;
+    }
+    
+    try {
+        let url = `/api/sale-entries?date=${dateFilter}`;
+        if (partyId) {
+            url += `&party_id=${partyId}`;
+        }
+        
+        const response = await fetch(url);
+        const entries = await response.json();
+        
+        if (entries.length === 0) {
+            showToast('No entries to print', 'error');
+            return;
+        }
+        
+        const party = partiesData.find(p => p.id == partyId);
+        const partyName = party ? party.name : 'All Parties';
+        
+        generatePrintReport('Sale Report', entries, dateFilter, partyName);
+    } catch (error) {
+        showToast('Error generating report: ' + error.message, 'error');
+    }
+}
+
+// Print Stock Report
+async function printStockReport() {
+    const dateFilter = document.getElementById('filterDate').value;
+    
+    try {
+        let url = '/api/stock-entries';
+        if (dateFilter) {
+            url += `?date=${dateFilter}`;
+        }
+        
+        const response = await fetch(url);
+        const entries = await response.json();
+        
+        if (entries.length === 0) {
+            showToast('No entries to print', 'error');
+            return;
+        }
+        
+        generatePrintReport('Stock Report', entries, dateFilter || 'All Dates', 'All');
+    } catch (error) {
+        showToast('Error generating report: ' + error.message, 'error');
+    }
+}
+
+// Common print report generator
+function generatePrintReport(reportTitle, entries, dateFilter, filterName) {
+    let totalQuantity = 0;
+    let totalAmount = 0;
+    entries.forEach(e => {
+        totalQuantity += e.quantity || 0;
+        totalAmount += e.amount || 0;
+    });
+    
+    const today = new Date().toLocaleDateString('en-IN', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+    
+    let printContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>${reportTitle}</title>
+            <style>
+                @page { size: A4; margin: 15mm; }
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 12px; line-height: 1.4; color: #333; }
+                .report-container { padding: 10px; }
+                .report-header { text-align: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid #667eea; }
+                .report-header h1 { color: #667eea; font-size: 24px; margin-bottom: 5px; }
+                .report-header p { color: #666; font-size: 11px; }
+                .filter-info { background: #f0f4ff; padding: 10px; border-radius: 5px; margin-bottom: 15px; }
+                .filter-info p { margin: 3px 0; }
+                table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+                th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; font-size: 11px; }
+                th { background-color: #667eea; color: white; font-weight: 600; }
+                tr:nth-child(even) { background-color: #f8f9fa; }
+                .summary { margin-top: 20px; padding: 15px; background-color: #f0f4ff; border-radius: 8px; border-left: 4px solid #667eea; }
+                .summary h3 { color: #667eea; margin-bottom: 10px; font-size: 14px; }
+                .summary p { margin: 5px 0; font-size: 12px; }
+                .footer { margin-top: 30px; text-align: center; font-size: 10px; color: #999; }
+                @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
+            </style>
+        </head>
+        <body>
+            <div class="report-container">
+                <div class="report-header">
+                    <h1>🎫 ${reportTitle}</h1>
+                    <p>Generated on: ${today}</p>
+                </div>
+                
+                <div class="filter-info">
+                    <p><strong>Date:</strong> ${dateFilter}</p>
+                    <p><strong>Filter:</strong> ${filterName}</p>
+                </div>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Category</th>
+                            <th>Code</th>
+                            <th>Start No.</th>
+                            <th>End No.</th>
+                            <th>Quantity</th>
+                            <th>Rate</th>
+                            <th>Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+    `;
+    
+    entries.forEach(entry => {
+        printContent += `
+            <tr>
+                <td>${entry.category || ''}</td>
+                <td>${entry.ticket_code || ''}</td>
+                <td>${entry.start_number}</td>
+                <td>${entry.end_number}</td>
+                <td>${entry.quantity}</td>
+                <td>${entry.rate || 0}</td>
+                <td>${(entry.amount || 0).toFixed(2)}</td>
+            </tr>
+        `;
+    });
+    
+    printContent += `
+                    </tbody>
+                </table>
+                
+                <div class="summary">
+                    <h3>Summary</h3>
+                    <p><strong>Total Entries:</strong> ${entries.length}</p>
+                    <p><strong>Total Quantity:</strong> ${totalQuantity}</p>
+                    <p><strong>Total Amount:</strong> ₹${totalAmount.toFixed(2)}</p>
+                </div>
+                
+                <div class="footer">
+                    <p>Lottery Ticket Stock Management System</p>
+                </div>
+            </div>
+        </body>
+        </html>
+    `;
+    
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    
+    printWindow.onload = function() {
+        printWindow.focus();
+        printWindow.print();
+    };
+}
+
 async function handleMakeAdmin(e) {
     e.preventDefault();
     
@@ -1690,10 +2031,10 @@ function initializeSaleTab() {
     // Populate categories for sale
     loadSaleCategories();
     
-    // Populate parties for sale
-    loadSaleParties();
+    // Populate parties for sale and auto-select first one
+    loadSaleParties(true);
     
-    // Load session entries
+    // Load session entries for selected party
     loadSaleSessionEntries();
     
     // Focus date field
@@ -1717,15 +2058,20 @@ function loadSaleCategories() {
 }
 
 // Load parties for sale dropdown
-function loadSaleParties() {
+function loadSaleParties(autoSelectFirst = false) {
     const select = document.getElementById('salePartySelect');
     select.innerHTML = '<option value="">Select Party</option>';
-    partiesData.forEach(party => {
+    partiesData.forEach((party, index) => {
         const option = document.createElement('option');
         option.value = party.id;
         option.textContent = party.name;
         select.appendChild(option);
     });
+    
+    // Auto-select first party if requested and parties exist
+    if (autoSelectFirst && partiesData.length > 0) {
+        select.value = partiesData[0].id;
+    }
 }
 
 // Handle sale category change - auto-populate sale rate
@@ -1981,13 +2327,18 @@ async function submitSaleEntry() {
 // Load sale session entries
 async function loadSaleSessionEntries() {
     const entryDate = document.getElementById('saleEntryDate').value;
+    const partyId = document.getElementById('salePartySelect').value;
     if (!entryDate) return;
     
     // Update date display
     document.getElementById('saleSessionDateDisplay').textContent = new Date(entryDate).toLocaleDateString();
     
     try {
-        const response = await fetch(`/api/sale-entries?date=${entryDate}`);
+        let url = `/api/sale-entries?date=${entryDate}`;
+        if (partyId) {
+            url += `&party_id=${partyId}`;
+        }
+        const response = await fetch(url);
         const entries = await response.json();
         
         const tbody = document.getElementById('saleSessionEntriesBody');
@@ -2226,6 +2577,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const saleEntryDate = document.getElementById('saleEntryDate');
     if (saleEntryDate) {
         saleEntryDate.addEventListener('change', loadSaleSessionEntries);
+    }
+    
+    const salePartySelect = document.getElementById('salePartySelect');
+    if (salePartySelect) {
+        salePartySelect.addEventListener('change', loadSaleSessionEntries);
     }
     
     // Set today's date for sale tab

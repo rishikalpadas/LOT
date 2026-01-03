@@ -277,15 +277,29 @@ body {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 10px;
+    flex-wrap: wrap;
+    gap: 10px;
 }
 
 .compact-header h2 {
     margin: 0;
 }
 
+.compact-header .header-actions {
+    display: flex;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.compact-header .header-actions .btn {
+    padding: 4px 10px;
+    font-size: 11px;
+}
+
 .compact-header .hint {
     font-size: 10px;
     color: var(--muted);
+    width: 100%;
 }
 
 /* Session Settings */

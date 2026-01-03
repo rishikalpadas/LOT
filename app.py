@@ -523,12 +523,16 @@ def stock_entries():
             db.session.rollback()
             return jsonify({'success': False, 'message': str(e)}), 500
     
-    # Get all entries or filter by date
+    # Get all entries or filter by date and distributor
     date_filter = request.args.get('date')
+    distributor_id_filter = request.args.get('distributor_id')
     query = StockEntry.query
     
     if date_filter:
         query = query.filter_by(entry_date=datetime.strptime(date_filter, '%Y-%m-%d').date())
+    
+    if distributor_id_filter:
+        query = query.filter_by(distributor_id=int(distributor_id_filter))
     
     entries = query.all()
     logger.info(f"[STOCK-ENTRY GET] Retrieved {len(entries)} entries")
@@ -826,12 +830,16 @@ def sale_entries():
             db.session.rollback()
             return jsonify({'success': False, 'message': str(e)}), 500
     
-    # Get all entries or filter by date
+    # Get all entries or filter by date and party
     date_filter = request.args.get('date')
+    party_id_filter = request.args.get('party_id')
     query = SaleEntry.query
     
     if date_filter:
         query = query.filter_by(entry_date=datetime.strptime(date_filter, '%Y-%m-%d').date())
+    
+    if party_id_filter:
+        query = query.filter_by(party_id=int(party_id_filter))
     
     entries = query.all()
     

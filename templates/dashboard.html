@@ -41,8 +41,6 @@
                     <button class="nav-btn" onclick="showTab('stock-tab')">Purchase</button>
                     <button class="nav-btn" onclick="showTab('sale-tab')">Sale</button>
                     <button class="nav-btn" onclick="showTab('view-stock-tab')">View Stock</button>
-                    <button class="nav-btn" onclick="showTab('export-tab')">Export Data</button>
-                    <button class="nav-btn" onclick="showTab('print-tab')">Print Report</button>
                     <button class="nav-btn admin-only" style="display:none;" onclick="showTab('admin-tab')">Admin Panel</button>
                 </nav>
             </div>
@@ -71,6 +69,10 @@
                 <div id="stock-tab" class="tab-content" data-focus-trap="true">
                     <div class="compact-header">
                         <h2>Purchase</h2>
+                        <div class="header-actions">
+                            <button class="btn btn-small btn-secondary" onclick="exportPurchaseCSV()" title="Export to CSV">📥 Export</button>
+                            <button class="btn btn-small btn-secondary" onclick="printPurchaseReport()" title="Print Report">🖨️ Print</button>
+                        </div>
                         <span class="hint">Tab to cycle fields • Enter to submit • Esc to clear</span>
                     </div>
                     
@@ -169,6 +171,10 @@
                 <div id="sale-tab" class="tab-content" data-focus-trap="true">
                     <div class="compact-header">
                         <h2>Sale</h2>
+                        <div class="header-actions">
+                            <button class="btn btn-small btn-secondary" onclick="exportSaleCSV()" title="Export to CSV">📥 Export</button>
+                            <button class="btn btn-small btn-secondary" onclick="printSaleReport()" title="Print Report">🖨️ Print</button>
+                        </div>
                         <span class="hint">Tab to cycle fields • Enter to submit • Esc to clear</span>
                     </div>
                     
@@ -265,7 +271,13 @@
 
                 <!-- View Stock Tab -->
                 <div id="view-stock-tab" class="tab-content">
-                    <h2>View Stock Entries</h2>
+                    <div class="compact-header">
+                        <h2>View Stock Entries</h2>
+                        <div class="header-actions">
+                            <button class="btn btn-small btn-secondary" onclick="exportStockCSV()" title="Export to CSV">📥 Export</button>
+                            <button class="btn btn-small btn-secondary" onclick="printStockReport()" title="Print Report">🖨️ Print</button>
+                        </div>
+                    </div>
                     <div class="form-group">
                         <label for="filterDate">Filter by Date:</label>
                         <input type="date" id="filterDate">
@@ -291,59 +303,6 @@
                             <tbody id="stockBody">
                             </tbody>
                         </table>
-                    </div>
-                </div>
-
-                <!-- Export Tab -->
-                <div id="export-tab" class="tab-content">
-                    <h2>Export Data</h2>
-                    <div class="export-section">
-                        <p>Export your stock data to CSV format</p>
-                        <div class="form-group">
-                            <label for="exportDate">Export for Date (Optional):</label>
-                            <input type="date" id="exportDate">
-                        </div>
-                        <button class="btn btn-primary" onclick="exportToCSV()">Export to CSV</button>
-                    </div>
-                </div>
-
-                <!-- Print Report Tab -->
-                <div id="print-tab" class="tab-content">
-                    <h2>Print Stock Report</h2>
-                    <div class="print-section">
-                        <div class="form-group">
-                            <label for="printDate">Filter by Date (Optional):</label>
-                            <input type="date" id="printDate">
-                        </div>
-                        <div class="form-group">
-                            <label for="printCategory">Filter by Category (Optional):</label>
-                            <select id="printCategory">
-                                <option value="">All Categories</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="paperSize">Paper Size:</label>
-                            <select id="paperSize">
-                                <option value="a4">A4 (210 × 297 mm)</option>
-                                <option value="a5">A5 (148 × 210 mm)</option>
-                                <option value="letter">Letter (8.5 × 11 in)</option>
-                                <option value="legal">Legal (8.5 × 14 in)</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="printOrientation">Orientation:</label>
-                            <select id="printOrientation">
-                                <option value="portrait">Portrait</option>
-                                <option value="landscape">Landscape</option>
-                            </select>
-                        </div>
-                        <button class="btn btn-primary" onclick="printReport()">🖨️ Print Report</button>
-                        <button class="btn btn-secondary" onclick="previewReport()">👁️ Preview Report</button>
-                    </div>
-                    
-                    <div id="printPreview" class="print-preview" style="display:none;">
-                        <h3>Print Preview</h3>
-                        <div id="previewContent"></div>
                     </div>
                 </div>
 
