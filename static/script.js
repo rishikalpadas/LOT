@@ -1549,7 +1549,7 @@ function generatePrintReport(reportTitle, entries, dateFilter, filterName, isSal
     
     // For sale report, use UTTARAN ENTERPRISE without icon
     const headerTitle = isSaleReport ? 'UTTARAN ENTERPRISE' : `🎫 ${reportTitle}`;
-    const filterLabel = isSaleReport ? 'Party' : 'Filter';
+    const filterLabel = isSaleReport ? 'Party Name' : 'Filter';
     const footerText = isSaleReport ? '' : '<p>LOT - Lottery Ticket Management</p>';
     
     let printContent = `
@@ -1587,7 +1587,7 @@ function generatePrintReport(reportTitle, entries, dateFilter, filterName, isSal
                 
                 <div class="filter-info">
                     <p><strong>Date:</strong> ${formattedDate}</p>
-                    <p><strong>${filterLabel}:</strong> ${filterName}</p>
+                    <p>${filterLabel}: <strong>${filterName}</strong></p>
                 </div>
                 
                 <table>
@@ -1619,16 +1619,16 @@ function generatePrintReport(reportTitle, entries, dateFilter, filterName, isSal
         `;
     });
     
+    // Add total row
     printContent += `
+                        <tr style="background-color: #f0f4ff; font-weight: 600;">
+                            <td colspan="4" style="text-align: right; border: none; background: white;"></td>
+                            <td style="border-top: 2px solid #667eea;"><strong>Total</strong></td>
+                            <td style="border-top: 2px solid #667eea;">${totalQuantity}</td>
+                            <td style="border-top: 2px solid #667eea;">${totalAmount.toFixed(2)}</td>
+                        </tr>
                     </tbody>
                 </table>
-                
-                <div class="summary">
-                    <h3>Summary</h3>
-                    <p><strong>Total Entries:</strong> ${entries.length}</p>
-                    <p><strong>Total Quantity:</strong> ${totalQuantity}</p>
-                    <p><strong>Total Amount:</strong> ₹${totalAmount.toFixed(2)}</p>
-                </div>
                 
                 <div class="footer">
                     ${footerText}
