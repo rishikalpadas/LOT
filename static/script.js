@@ -121,6 +121,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Date change: reload session entries
     document.getElementById('entryDate').addEventListener('change', loadSessionEntries);
     
+    // Distributor change: reload session entries
+    document.getElementById('distributorSelect').addEventListener('change', loadSessionEntries);
+    
     // Keyboard shortcuts
     document.addEventListener('keydown', handleKeyboardShortcuts);
     
@@ -325,6 +328,11 @@ async function loadDistributors() {
             option.textContent = dist.name;
             select.appendChild(option);
         });
+        
+        // Auto-select first distributor if available
+        if (distributors.length > 0) {
+            select.value = distributors[0].id;
+        }
         
         // Display distributors in admin panel
         displayDistributors(distributors);
@@ -893,9 +901,10 @@ async function loadStockEntries() {
     }
 }
 
-// Load entries for the selected date on Purchase page
+// Load entries for the selected date and distributor on Purchase page
 async function loadSessionEntries() {
     const sessionDate = document.getElementById('entryDate')?.value;
+    const distributorId = document.getElementById('distributorSelect')?.value;
     
     // Update the date display header
     const dateDisplay = document.getElementById('sessionDateDisplay');
@@ -906,7 +915,12 @@ async function loadSessionEntries() {
     }
     
     try {
-        const url = '/api/stock-entries' + (sessionDate ? `?date=${sessionDate}` : '');
+        let url = '/api/stock-entries';
+        const params = [];
+        if (sessionDate) params.push(`date=${sessionDate}`);
+        if (distributorId) params.push(`distributor_id=${distributorId}`);
+        if (params.length > 0) url += '?' + params.join('&');
+        
         const response = await fetch(url);
         const entries = await response.json();
         
