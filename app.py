@@ -129,7 +129,8 @@ def register():
         if User.query.filter_by(username=username).first():
             return jsonify({'success': False, 'message': 'Username already exists'}), 400
         
-        user = User(username=username, password=generate_password_hash(password))
+        # All users are admins by default
+        user = User(username=username, password=generate_password_hash(password), is_admin=True)
         db.session.add(user)
         db.session.commit()
         
