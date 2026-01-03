@@ -1498,7 +1498,7 @@ async function printSaleReport() {
         const party = partiesData.find(p => p.id == partyId);
         const partyName = party ? party.name : 'All Parties';
         
-        generatePrintReport('Sale Report', entries, dateFilter, partyName);
+        generatePrintReport('Sale Report', entries, dateFilter, partyName, true);
     } catch (error) {
         showToast('Error generating report: ' + error.message, 'error');
     }
@@ -1529,7 +1529,7 @@ async function printStockReport() {
 }
 
 // Common print report generator
-function generatePrintReport(reportTitle, entries, dateFilter, filterName) {
+function generatePrintReport(reportTitle, entries, dateFilter, filterName, isSaleReport = false) {
     let totalQuantity = 0;
     let totalAmount = 0;
     entries.forEach(e => {
@@ -1537,11 +1537,20 @@ function generatePrintReport(reportTitle, entries, dateFilter, filterName) {
         totalAmount += e.amount || 0;
     });
     
-    const today = new Date().toLocaleDateString('en-IN', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-    });
+    // Format date as dd/mm/yyyy for sale report
+    let formattedDate = dateFilter;
+    if (dateFilter && dateFilter.includes('-')) {
+        const dateParts = dateFilter.split('-');
+        formattedDate = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
+    }
+    
+    const today = new Date();
+    const todayFormatted = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
+    
+    // For sale report, use UTTARAN ENTERPRISE without icon
+    const headerTitle = isSaleReport ? 'UTTARAN ENTERPRISE' : `🎫 ${reportTitle}`;
+    const filterLabel = isSaleReport ? 'Party' : 'Filter';
+    const footerText = isSaleReport ? '' : '<p>LOT - Lottery Ticket Management</p>';
     
     let printContent = `
         <!DOCTYPE html>
@@ -1572,13 +1581,13 @@ function generatePrintReport(reportTitle, entries, dateFilter, filterName) {
         <body>
             <div class="report-container">
                 <div class="report-header">
-                    <h1>🎫 ${reportTitle}</h1>
-                    <p>Generated on: ${today}</p>
+                    <h1>${headerTitle}</h1>
+                    <p>Generated on: ${todayFormatted}</p>
                 </div>
                 
                 <div class="filter-info">
-                    <p><strong>Date:</strong> ${dateFilter}</p>
-                    <p><strong>Filter:</strong> ${filterName}</p>
+                    <p><strong>Date:</strong> ${formattedDate}</p>
+                    <p><strong>${filterLabel}:</strong> ${filterName}</p>
                 </div>
                 
                 <table>
@@ -1622,7 +1631,7 @@ function generatePrintReport(reportTitle, entries, dateFilter, filterName) {
                 </div>
                 
                 <div class="footer">
-                    <p>Lottery Ticket Stock Management System</p>
+                    ${footerText}
                 </div>
             </div>
         </body>
