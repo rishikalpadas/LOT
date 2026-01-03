@@ -25,10 +25,11 @@
     
     <div class="navbar">
         <div class="navbar-content">
-            <h1>🎰 Lottery Stock Management</h1>
+            <h1>🎰 LOT</h1>
             <div class="navbar-actions">
+                <span class="live-clock" id="liveClock"></span>
                 <span id="userName"></span>
-                <button class="btn btn-small" onclick="logout()">Logout</button>
+                <button class="btn-logout" onclick="logout()">Logout</button>
             </div>
         </div>
     </div>
@@ -48,19 +49,87 @@
             <div class="main-content">
                 <!-- Dashboard Tab -->
                 <div id="dashboard-tab" class="tab-content active">
-                    <h2>Welcome to Dashboard</h2>
-                    <div class="stats">
-                        <div class="stat-card">
-                            <h3>Total Categories</h3>
-                            <p id="totalCategories">0</p>
+                    <div class="dashboard-header">
+                        <h2>📊 Dashboard Overview</h2>
+                        <p class="dashboard-date" id="dashboardDate"></p>
+                    </div>
+                    
+                    <!-- Today's Summary -->
+                    <div class="dashboard-section">
+                        <h3 class="section-title">📅 Today's Activity</h3>
+                        <div class="stats stats-4">
+                            <div class="stat-card stat-blue">
+                                <div class="stat-icon">🛒</div>
+                                <div class="stat-info">
+                                    <p id="todayPurchaseQty">0</p>
+                                    <h3>Tickets Purchased</h3>
+                                </div>
+                            </div>
+                            <div class="stat-card stat-green">
+                                <div class="stat-icon">💰</div>
+                                <div class="stat-info">
+                                    <p id="todaySaleQty">0</p>
+                                    <h3>Tickets Sold</h3>
+                                </div>
+                            </div>
+                            <div class="stat-card stat-purple">
+                                <div class="stat-icon">📥</div>
+                                <div class="stat-info">
+                                    <p id="todayPurchaseAmount">₹0</p>
+                                    <h3>Purchase Value</h3>
+                                </div>
+                            </div>
+                            <div class="stat-card stat-orange">
+                                <div class="stat-icon">📤</div>
+                                <div class="stat-info">
+                                    <p id="todaySaleAmount">₹0</p>
+                                    <h3>Sale Value</h3>
+                                </div>
+                            </div>
                         </div>
-                        <div class="stat-card">
-                            <h3>Total Entries</h3>
-                            <p id="totalEntries">0</p>
+                    </div>
+                    
+                    <!-- Overall Inventory -->
+                    <div class="dashboard-section">
+                        <h3 class="section-title">📦 Current Stock</h3>
+                        <div class="stats">
+                            <div class="stat-card">
+                                <div class="stat-icon">🎫</div>
+                                <div class="stat-info">
+                                    <p id="totalTickets">0</p>
+                                    <h3>Total Tickets in Stock</h3>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon">📋</div>
+                                <div class="stat-info">
+                                    <p id="totalCategories">0</p>
+                                    <h3>Categories</h3>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon">📝</div>
+                                <div class="stat-info">
+                                    <p id="totalEntries">0</p>
+                                    <h3>Stock Entries</h3>
+                                </div>
+                            </div>
                         </div>
-                        <div class="stat-card">
-                            <h3>Total Tickets</h3>
-                            <p id="totalTickets">0</p>
+                    </div>
+                    
+                    <!-- Category-wise Stock -->
+                    <div class="dashboard-section">
+                        <h3 class="section-title">🏷️ Stock by Category</h3>
+                        <div class="category-stock-grid" id="categoryStockGrid">
+                            <p class="loading-text">Loading...</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Recent Activity -->
+                    <div class="dashboard-section">
+                        <h3 class="section-title">🕐 Recent Transactions</h3>
+                        <div class="recent-activity" id="recentActivity">
+                            <p class="loading-text">Loading...</p>
                         </div>
                     </div>
                 </div>
@@ -308,97 +377,88 @@
 
                 <!-- Admin Panel Tab -->
                 <div id="admin-tab" class="tab-content">
-                    <h2>Admin Panel</h2>
+                    <div class="admin-header">
+                        <h2>⚙️ Admin Panel</h2>
+                    </div>
                     
-                    <div class="admin-section">
-                        <h3>Manage Categories</h3>
-                        <form id="categoryForm" class="form-grid">
-                            <div class="form-group">
-                                <label for="categoryName">Category Name:</label>
-                                <input type="text" id="categoryName" placeholder="M25" maxlength="5" style="text-transform: uppercase;" required>
-                                <small style="color: #718096;">Format: M/D/E + Number</small>
+                    <div class="admin-grid">
+                        <!-- Left Column: Categories & Users -->
+                        <div class="admin-column">
+                            <!-- Categories -->
+                            <div class="admin-card">
+                                <div class="admin-card-header">
+                                    <h3>🏷️ Categories</h3>
+                                </div>
+                                <form id="categoryForm" class="admin-form">
+                                    <div class="admin-form-row">
+                                        <input type="text" id="categoryName" placeholder="Name (e.g. M25)" maxlength="5" style="text-transform: uppercase;" required>
+                                        <input type="number" id="categoryPurchaseRate" placeholder="Purchase ₹" min="0" step="0.01">
+                                        <input type="number" id="categorySaleRate" placeholder="Sale ₹" min="0" step="0.01">
+                                        <button type="submit" class="btn-icon" id="categorySubmitBtn" title="Add">➕</button>
+                                    </div>
+                                </form>
+                                <div id="categoryMessage" class="message"></div>
+                                <div id="categoriesList" class="admin-list"></div>
                             </div>
-                            <div class="form-group">
-                                <label for="categoryPurchaseRate">Purchase Rate:</label>
-                                <input type="number" id="categoryPurchaseRate" placeholder="0" min="0" step="0.01">
-                            </div>
-                            <div class="form-group">
-                                <label for="categorySaleRate">Sale Rate:</label>
-                                <input type="number" id="categorySaleRate" placeholder="0" min="0" step="0.01">
-                            </div>
-                            <button type="submit" class="btn btn-primary" id="categorySubmitBtn">Add Category</button>
-                        </form>
-                        <div id="categoryMessage" class="message"></div>
-                    </div>
 
-                    <div class="admin-section">
-                        <h3>Existing Categories</h3>
-                        <div id="categoriesList" class="categories-grid">
+                            <!-- Users -->
+                            <div class="admin-card">
+                                <div class="admin-card-header">
+                                    <h3>👥 Users</h3>
+                                </div>
+                                <form id="adminForm" class="admin-form">
+                                    <div class="admin-form-row">
+                                        <input type="text" id="adminUsername" placeholder="Username to promote" required>
+                                        <button type="submit" class="btn-icon" title="Make Admin">👑</button>
+                                    </div>
+                                </form>
+                                <div id="adminMessage" class="message"></div>
+                                <div id="usersList" class="admin-table">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>User</th>
+                                                <th>Role</th>
+                                                <th>Created</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="usersBody"></tbody>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
-                    </div>
 
-                    <div class="admin-section">
-                        <h3>Manage Distributors</h3>
-                        <form id="distributorForm" class="form-grid">
-                            <div class="form-group full-width">
-                                <label for="distributorName">Distributor Name:</label>
-                                <input type="text" id="distributorName" placeholder="Enter distributor name" required>
+                        <!-- Right Column: Distributors & Parties -->
+                        <div class="admin-column">
+                            <!-- Distributors -->
+                            <div class="admin-card">
+                                <div class="admin-card-header">
+                                    <h3>🏪 Distributors</h3>
+                                </div>
+                                <form id="distributorForm" class="admin-form">
+                                    <div class="admin-form-row">
+                                        <input type="text" id="distributorName" placeholder="Distributor name" required>
+                                        <button type="submit" class="btn-icon" id="distributorSubmitBtn" title="Add">➕</button>
+                                    </div>
+                                </form>
+                                <div id="distributorMessage" class="message"></div>
+                                <div id="distributorsList" class="admin-list"></div>
                             </div>
-                            <button type="submit" class="btn btn-primary" id="distributorSubmitBtn">Add Distributor</button>
-                        </form>
-                        <div id="distributorMessage" class="message"></div>
-                    </div>
 
-                    <div class="admin-section">
-                        <h3>Existing Distributors</h3>
-                        <div id="distributorsList" class="categories-grid">
-                        </div>
-                    </div>
-
-                    <div class="admin-section">
-                        <h3>Manage Parties</h3>
-                        <form id="partyForm" class="form-grid">
-                            <div class="form-group full-width">
-                                <label for="partyName">Party Name:</label>
-                                <input type="text" id="partyName" placeholder="Enter party name" required>
+                            <!-- Parties -->
+                            <div class="admin-card">
+                                <div class="admin-card-header">
+                                    <h3>👤 Parties</h3>
+                                </div>
+                                <form id="partyForm" class="admin-form">
+                                    <div class="admin-form-row">
+                                        <input type="text" id="partyName" placeholder="Party name" required>
+                                        <button type="submit" class="btn-icon" id="partySubmitBtn" title="Add">➕</button>
+                                    </div>
+                                </form>
+                                <div id="partyMessage" class="message"></div>
+                                <div id="partiesList" class="admin-list"></div>
                             </div>
-                            <button type="submit" class="btn btn-primary" id="partySubmitBtn">Add Party</button>
-                        </form>
-                        <div id="partyMessage" class="message"></div>
-                    </div>
-
-                    <div class="admin-section">
-                        <h3>Existing Parties</h3>
-                        <div id="partiesList" class="categories-grid">
-                        </div>
-                    </div>
-
-                    <div class="admin-section">
-                        <h3>Make User Admin</h3>
-                        <form id="adminForm" class="form-grid">
-                            <div class="form-group">
-                                <label for="adminUsername">Username:</label>
-                                <input type="text" id="adminUsername" required>
-                            </div>
-                            <button type="submit" class="btn btn-primary">Promote to Admin</button>
-                        </form>
-                        <div id="adminMessage" class="message"></div>
-                    </div>
-
-                    <div class="admin-section">
-                        <h3>All Users</h3>
-                        <div id="usersList" class="table-container">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Username</th>
-                                        <th>Role</th>
-                                        <th>Created At</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="usersBody">
-                                </tbody>
-                            </table>
                         </div>
                     </div>
                 </div>

@@ -80,10 +80,32 @@ function repr(str) {
     return `"${str}"`;
 }
 
+// Live clock update function
+function updateLiveClock() {
+    const now = new Date();
+    
+    // Format: "Sat, 03 Jan 2026 | 14:35:28"
+    const dateOptions = { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' };
+    const dateStr = now.toLocaleDateString('en-IN', dateOptions);
+    
+    const timeStr = now.toLocaleTimeString('en-IN', { 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        second: '2-digit',
+        hour12: false 
+    });
+    
+    document.getElementById('liveClock').textContent = `${dateStr} | ${timeStr}`;
+}
+
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', async () => {
     // Set today's date as default
     document.getElementById('entryDate').valueAsDate = new Date();
+    
+    // Start live clock
+    updateLiveClock();
+    setInterval(updateLiveClock, 1000);
     
     // Check admin status and load data
     await checkAdminStatus();
@@ -96,6 +118,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (isAdmin) {
         await loadUsers();
     }
+    
+    // Auto-refresh dashboard every 30 seconds when on dashboard tab
+    setInterval(() => {
+        const dashboardTab = document.getElementById('dashboard-tab');
+        if (dashboardTab && dashboardTab.classList.contains('active')) {
+            loadStats();
+        }
+    }, 30000);
     
     // Event listeners
     document.getElementById('stockForm').addEventListener('submit', handleAddStockEntry);
@@ -163,9 +193,14 @@ function showTab(tabId) {
     // Mark button as active
     event.target.classList.add('active');
     
-    // Reload data if viewing stock
+    // Reload data based on tab
     if (tabId === 'view-stock-tab') {
         loadStockEntries();
+    }
+    
+    // Refresh dashboard when switching to it
+    if (tabId === 'dashboard-tab') {
+        loadStats();
     }
     
     // Focus first field when switching to stock entry tab
@@ -347,18 +382,16 @@ function displayDistributors(distributors) {
     if (!container) return;
     
     if (distributors.length === 0) {
-        container.innerHTML = '<p>No distributors yet. Create one using the form above.</p>';
+        container.innerHTML = '<div class="admin-empty">No distributors yet</div>';
         return;
     }
     
     container.innerHTML = distributors.map(dist => `
-        <div class="category-card">
-            <div>
-                <h4>${dist.name}</h4>
-                <div style="display: flex; gap: 8px; margin-top: 10px;">
-                    <button class="btn-secondary" style="padding: 6px 12px; font-size: 12px;" onclick="editDistributor(${dist.id}, '${dist.name.replace(/'/g, "\\'")}')">Edit</button>
-                    <button class="btn-danger" style="padding: 6px 12px; font-size: 12px;" onclick="deleteDistributor(${dist.id})">Delete</button>
-                </div>
+        <div class="admin-list-item">
+            <span class="item-name">${dist.name}</span>
+            <div class="item-actions">
+                <button class="btn-edit" onclick="editDistributor(${dist.id}, '${dist.name.replace(/'/g, "\\'")}')">Edit</button>
+                <button class="btn-del" onclick="deleteDistributor(${dist.id})">Del</button>
             </div>
         </div>
     `).join('');
@@ -445,18 +478,16 @@ function displayParties(parties) {
     if (!container) return;
     
     if (parties.length === 0) {
-        container.innerHTML = '<p>No parties yet. Create one using the form above.</p>';
+        container.innerHTML = '<div class="admin-empty">No parties yet</div>';
         return;
     }
     
     container.innerHTML = parties.map(party => `
-        <div class="category-card">
-            <div>
-                <h4>${party.name}</h4>
-                <div style="display: flex; gap: 8px; margin-top: 10px;">
-                    <button class="btn-secondary" style="padding: 6px 12px; font-size: 12px;" onclick="editParty(${party.id}, '${party.name.replace(/'/g, "\\'")}')">Edit</button>
-                    <button class="btn-danger" style="padding: 6px 12px; font-size: 12px;" onclick="deleteParty(${party.id})">Delete</button>
-                </div>
+        <div class="admin-list-item">
+            <span class="item-name">${party.name}</span>
+            <div class="item-actions">
+                <button class="btn-edit" onclick="editParty(${party.id}, '${party.name.replace(/'/g, "\\'")}')">Edit</button>
+                <button class="btn-del" onclick="deleteParty(${party.id})">Del</button>
             </div>
         </div>
     `).join('');
@@ -525,20 +556,19 @@ function displayCategories(categories) {
     const container = document.getElementById('categoriesList');
     
     if (categories.length === 0) {
-        container.innerHTML = '<p>No categories yet. Create one using the form above.</p>';
+        container.innerHTML = '<div class="admin-empty">No categories yet</div>';
         return;
     }
     
     container.innerHTML = categories.map(cat => `
-        <div class="category-card">
+        <div class="admin-list-item">
             <div>
-                <h4>${cat.name}</h4>
-                <p style="font-size: 11px; color: #666;">Series: ${cat.series} | Denom: ${cat.denomination}</p>
-                <p style="font-size: 11px; color: #666;">Purchase: ${cat.purchase_rate || 0} | Sale: ${cat.sale_rate || 0}</p>
-                <div style="display: flex; gap: 8px; margin-top: 10px;">
-                    <button class="btn-secondary" style="padding: 6px 12px; font-size: 12px;" onclick="editCategory(${cat.id}, '${cat.name}', ${cat.purchase_rate || 0}, ${cat.sale_rate || 0})">Edit</button>
-                    <button class="btn-danger" style="padding: 6px 12px; font-size: 12px;" onclick="deleteCategory(${cat.id})">Delete</button>
-                </div>
+                <span class="item-name">${cat.name}</span>
+                <span class="item-meta">Buy: ₹${cat.purchase_rate || 0} | Sell: ₹${cat.sale_rate || 0}</span>
+            </div>
+            <div class="item-actions">
+                <button class="btn-edit" onclick="editCategory(${cat.id}, '${cat.name}', ${cat.purchase_rate || 0}, ${cat.sale_rate || 0})">Edit</button>
+                <button class="btn-del" onclick="deleteCategory(${cat.id})">Del</button>
             </div>
         </div>
     `).join('');
@@ -1638,20 +1668,147 @@ async function handleMakeAdmin(e) {
 
 async function loadStats() {
     try {
-        const response = await fetch('/api/stock-entries');
-        const entries = await response.json();
-        
-        const catResponse = await fetch('/api/categories');
-        const categories = await catResponse.json();
-        
-        let totalTickets = 0;
-        entries.forEach(entry => {
-            totalTickets += entry.quantity;
+        // Set dashboard date
+        const today = new Date();
+        const dateStr = today.toISOString().split('T')[0];
+        const dateDisplay = today.toLocaleDateString('en-IN', { 
+            weekday: 'long', 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
         });
+        document.getElementById('dashboardDate').textContent = dateDisplay;
+        
+        // Fetch all data
+        const [stockRes, catRes, saleRes, todayStockRes, todaySaleRes] = await Promise.all([
+            fetch('/api/stock-entries'),
+            fetch('/api/categories'),
+            fetch('/api/sale-entries'),
+            fetch(`/api/stock-entries?date=${dateStr}`),
+            fetch(`/api/sale-entries?date=${dateStr}`)
+        ]);
+        
+        const entries = await stockRes.json();
+        const categories = await catRes.json();
+        const sales = await saleRes.json();
+        const todayPurchases = await todayStockRes.json();
+        const todaySales = await todaySaleRes.json();
+        
+        // Calculate overall stats
+        let totalTickets = 0;
+        entries.forEach(entry => totalTickets += entry.quantity);
         
         document.getElementById('totalCategories').textContent = categories.length;
         document.getElementById('totalEntries').textContent = entries.length;
-        document.getElementById('totalTickets').textContent = totalTickets;
+        document.getElementById('totalTickets').textContent = totalTickets.toLocaleString();
+        
+        // Calculate today's stats
+        let todayPurchaseQty = 0, todayPurchaseAmt = 0;
+        todayPurchases.forEach(e => {
+            todayPurchaseQty += e.quantity || 0;
+            todayPurchaseAmt += e.amount || 0;
+        });
+        
+        let todaySaleQty = 0, todaySaleAmt = 0;
+        todaySales.forEach(e => {
+            todaySaleQty += e.quantity || 0;
+            todaySaleAmt += e.amount || 0;
+        });
+        
+        document.getElementById('todayPurchaseQty').textContent = todayPurchaseQty.toLocaleString();
+        document.getElementById('todaySaleQty').textContent = todaySaleQty.toLocaleString();
+        document.getElementById('todayPurchaseAmount').textContent = '₹' + todayPurchaseAmt.toLocaleString();
+        document.getElementById('todaySaleAmount').textContent = '₹' + todaySaleAmt.toLocaleString();
+        
+        // Category-wise stock
+        const categoryStock = {};
+        categories.forEach(cat => categoryStock[cat.id] = { name: cat.name, qty: 0 });
+        entries.forEach(entry => {
+            if (categoryStock[entry.category_id]) {
+                categoryStock[entry.category_id].qty += entry.quantity;
+            }
+        });
+        
+        const categoryGrid = document.getElementById('categoryStockGrid');
+        const catItems = Object.values(categoryStock);
+        if (catItems.length === 0) {
+            categoryGrid.innerHTML = '<p class="loading-text">No categories found</p>';
+        } else {
+            categoryGrid.innerHTML = catItems.map(cat => `
+                <div class="category-stock-item">
+                    <span class="cat-name">${cat.name}</span>
+                    <span class="cat-qty">${cat.qty.toLocaleString()}</span>
+                </div>
+            `).join('');
+        }
+        
+        // Recent activity (last 10 transactions)
+        const allTransactions = [];
+        
+        // Add purchases with type
+        entries.slice(-20).forEach(e => {
+            allTransactions.push({
+                type: 'Purchase',
+                date: e.date,
+                category: e.category,
+                code: e.ticket_code || '-',
+                range: `${e.start_number} - ${e.end_number}`,
+                qty: e.quantity,
+                amount: e.amount || 0
+            });
+        });
+        
+        // Add sales with type
+        sales.slice(-20).forEach(e => {
+            allTransactions.push({
+                type: 'Sale',
+                date: e.date,
+                category: e.category,
+                code: e.ticket_code || '-',
+                range: `${e.start_number} - ${e.end_number}`,
+                qty: e.quantity,
+                amount: e.amount || 0
+            });
+        });
+        
+        // Sort by date descending and take last 10
+        allTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+        const recentTx = allTransactions.slice(0, 10);
+        
+        const activityEl = document.getElementById('recentActivity');
+        if (recentTx.length === 0) {
+            activityEl.innerHTML = '<p class="loading-text">No recent transactions</p>';
+        } else {
+            activityEl.innerHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Date</th>
+                            <th>Category</th>
+                            <th>Code</th>
+                            <th>Range</th>
+                            <th>Qty</th>
+                            <th>Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${recentTx.map(tx => `
+                            <tr>
+                                <td class="type-${tx.type.toLowerCase()}">${tx.type}</td>
+                                <td>${tx.date}</td>
+                                <td>${tx.category}</td>
+                                <td>${tx.code}</td>
+                                <td>${tx.range}</td>
+                                <td>${tx.qty}</td>
+                                <td>₹${tx.amount.toFixed(2)}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+        
     } catch (error) {
         console.error('Error loading stats:', error);
     }
@@ -2265,7 +2422,8 @@ async function submitSaleEntry() {
                 body: JSON.stringify({
                     category_id: categoryId,
                     start_number: startNumber,
-                    end_number: endNumber
+                    end_number: endNumber,
+                    sale_date: entryDate
                 })
             });
             

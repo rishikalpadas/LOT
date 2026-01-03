@@ -620,17 +620,25 @@ def check_stock_range():
     """
     Check if a ticket range exists in stock and return matching codes.
     Used by Sale screen to auto-populate or prompt for code.
+    Only considers stock purchased on or before the sale date.
     """
     data = request.get_json()
     category_id = int(data.get('category_id'))
     start_num = data.get('start_number')
     end_num = data.get('end_number')
+    sale_date_str = data.get('sale_date')
     
     new_start = int(start_num)
     new_end = int(end_num)
     
-    # Get all stock entries for this category (any code)
-    stock_entries = StockEntry.query.filter_by(category_id=category_id).all()
+    # Get stock entries for this category, filtered by date if provided
+    stock_query = StockEntry.query.filter_by(category_id=category_id)
+    
+    if sale_date_str:
+        sale_date = datetime.strptime(sale_date_str, '%Y-%m-%d').date()
+        stock_query = stock_query.filter(StockEntry.entry_date <= sale_date)
+    
+    stock_entries = stock_query.all()
     
     # Find all stock entries that contain the requested range
     matching_entries = []
@@ -650,7 +658,7 @@ def check_stock_range():
     if len(matching_entries) == 0:
         return jsonify({
             'available': False,
-            'message': 'Tickets not available in stock',
+            'message': 'Tickets not available in stock for this date',
             'matches': []
         })
     elif len(matching_entries) == 1:
@@ -669,9 +677,10 @@ def check_stock_range():
         })
 
 # Helper function to check if ticket range is available in stock and return the matching stock entry
-def find_stock_entry_for_range(category_id, ticket_code, start_num, end_num):
+def find_stock_entry_for_range(category_id, ticket_code, start_num, end_num, sale_date=None):
     """
     Find the stock entry that contains the given ticket range.
+    If sale_date is provided, only considers stock purchased on or before that date.
     Returns the stock entry if found, None otherwise.
     """
     new_start = int(start_num)
@@ -683,6 +692,10 @@ def find_stock_entry_for_range(category_id, ticket_code, start_num, end_num):
         stock_query = stock_query.filter_by(ticket_code=ticket_code)
     else:
         stock_query = stock_query.filter(StockEntry.ticket_code.is_(None))
+    
+    # Filter by date - only stock purchased on or before sale date
+    if sale_date:
+        stock_query = stock_query.filter(StockEntry.entry_date <= sale_date)
     
     stock_entries = stock_query.all()
     
@@ -792,10 +805,13 @@ def sale_entries():
             start_number = data.get('start_number')
             end_number = data.get('end_number')
             
-            # Find the stock entry that contains this range
-            stock_entry = find_stock_entry_for_range(category_id, ticket_code, start_number, end_number)
+            # Parse the sale date
+            sale_date = datetime.strptime(data.get('entry_date'), '%Y-%m-%d').date()
+            
+            # Find the stock entry that contains this range (only from stock purchased on or before sale date)
+            stock_entry = find_stock_entry_for_range(category_id, ticket_code, start_number, end_number, sale_date)
             if not stock_entry:
-                return jsonify({'success': False, 'message': f'Tickets {start_number}-{end_number} are not available in stock'}), 400
+                return jsonify({'success': False, 'message': f'Tickets {start_number}-{end_number} are not available in stock for this date. Stock must be purchased on or before the sale date.'}), 400
             
             # Get category for denomination
             category = Category.query.get(category_id)
@@ -810,7 +826,7 @@ def sale_entries():
             entry = SaleEntry(
                 category_id=category_id,
                 party_id=party_id,
-                entry_date=datetime.strptime(data.get('entry_date'), '%Y-%m-%d').date(),
+                entry_date=sale_date,
                 ticket_code=ticket_code,
                 start_number=start_number,
                 end_number=end_number,
