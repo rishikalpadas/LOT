@@ -24,8 +24,6 @@ a = Analysis(
         'sqlalchemy',
         'sqlalchemy.dialects.sqlite',
         'jinja2',
-        'flaskwebgui',
-        'psutil',
     ],
     hookspath=[],
     hooksconfig={},

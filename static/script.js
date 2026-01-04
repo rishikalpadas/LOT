@@ -6,6 +6,19 @@ let categoriesData = [];
 let distributorsData = [];
 let partiesData = [];
 
+// Disable right-click context menu
+document.addEventListener('contextmenu', function(e) {
+    e.preventDefault();
+    return false;
+});
+
+// Disable text selection (optional - makes it feel more like a desktop app)
+// document.addEventListener('selectstart', function(e) {
+//     if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+//         e.preventDefault();
+//     }
+// });
+
 // Toast notification system
 function showToast(message, type = 'info', duration = 3000) {
     const container = document.getElementById('toastContainer');
